@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
+    <title>Student :: WebRTC</title>
+</head>
+<body>
+
+<div class="container">
+    <h1>Student :: WebRTC</h1>
+    <form id="connectionForm">
+        <fieldset>
+            <legend>Настройки подключения WS</legend>
+            <div class="input-group mb-3">
+                <span class="input-group-text" id="basic-addon1">ws://</span>
+                <input type="text" id="wsUrlInput" class="form-control" value="">
+            </div>
+            <div class="mb-3">
+                <label for="resourceNameInput" class="form-label">Resource name</label>
+                <input type="text" id="resourceNameInput" class="form-control" value="lesson">
+            </div>
+            <div class="mb-3">
+                <label for="resourceIdInput" class="form-label">Resource ID</label>
+                <input type="text" id="resourceIdInput" class="form-control" value="9">
+            </div>
+            <div class="mb-3">
+                <label for="jwtInput" class="form-label">JWT token</label>
+                <input type="text" id="jwtInput" class="form-control" value="student">
+            </div>
+            <button type="button" id="connectionBtn" class="btn btn-primary">Connect</button>
+        </fieldset>
+    </form>
+    <div class="row" id="controlPanel">
+        <div class="btn-group" role="group" aria-label="Basic mixed styles example">
+<!--            <button id="startStreamBtn" type="button" class="btn btn-success">Начать трансляцию</button>-->
+            <button id="stopStreamBtn" type="button" class="btn btn-warning">Завершить трансляцию</button>
+            <button id="closeWsBtn" type="button" class="btn btn-danger">Закрыть WS соединение</button>
+        </div>
+    </div>
+    <div class="row" id="videoPanel">
+        <div class="col">
+            <video id = "localVideo" autoplay></video>
+        </div>
+    </div>
+</div>
+
+<!-- Optional JavaScript; choose one of the two! -->
+
+<!-- Option 1: Bootstrap Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+
+<!-- Option 2: Separate Popper and Bootstrap JS -->
+<!--
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js" integrity="sha384-7+zCNj/IqJ95wo16oMtfsKbZ9ccEh31eOz1HGyDuCQ6wgnyJNSYdrPa03rtR1zdB" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js" integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13" crossorigin="anonymous"></script>
+-->
+
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOMContentLoaded')
+        // *********
+        // определение переменных
+        // *********
+
+        // форма подключения
+        let connectionForm = document.querySelector('#connectionForm')
+        let wsUrlInput = document.querySelector('#wsUrlInput')
+        let resourceNameInput = document.querySelector('#resourceNameInput')
+        let resourceIdInput = document.querySelector('#resourceIdInput')
+        let jwtInput = document.querySelector('#jwtInput')
+        let connectionBtn = document.querySelector('#connectionBtn')
+
+        // панель управления
+        let controlPanel = document.querySelector('#controlPanel')
+        // let startStreamBtn = document.querySelector('#startStreamBtn')
+        let stopStreamBtn = document.querySelector('#stopStreamBtn')
+        let closeWsBtn = document.querySelector('#closeWsBtn')
+
+        // видео
+        let videoPanel = document.querySelector('#videoPanel')
+        let video = document.querySelector('#localVideo')
+
+        // соединения
+        let wsCon
+        let rtcCon
+        let videoStream
+
+        // служебное
+        let wsInterval
+        let rtcCnf = {
+            "iceServers": [{"url": "stun:stun.1.google.com:19302"}]
+        }
+
+        // *********
+        // определение основных функций
+        // *********
+
+        // установка изначального состояния страницы
+        function firstPageState() {
+            controlPanel.classList.add('d-none')
+            videoPanel.classList.add('d-none')
+            connectionForm.classList.remove('d-none')
+        }
+        // определение RTC peer connection
+        function hasRTCPeerConnection() {
+            window.RTCPeerConnection = window.RTCPeerConnection ||
+                window.webkitRTCPeerConnection ||
+                window.mozRTCPeerConnection;
+            return !!window.RTCPeerConnection;
+        }
+        // определение доступа к media
+        function hasUserMedia() {
+            navigator.getUserMedia = navigator.getUserMedia ||
+                navigator.webkitGetUserMedia ||
+                navigator.mozGetUserMedia ||
+                navigator.msGetUserMedia;
+            return !!navigator.getUserMedia;
+        }
+        //* websocket
+        function wsOnOpen() {
+            console.log('установлено WS подключение')
+            wsInterval = setInterval(wsPing, 1000)
+        }
+        function wsOnError(err) {
+            console.error(err)
+            wsClose()
+        }
+        function wsPing() {
+            if (wsCon.readyState !== WebSocket.OPEN) {
+                console.warn('websocket соединение закрыто')
+                clearInterval(wsInterval)
+                wsClose()
+                rtcClose()
+            }
+        }
+        function wsOnMessage(msg) {
+            console.log('входящее сообщение', msg.data)
+
+            let data = JSON.parse(msg.data)
+            console.log('данные сообщения', data)
+
+            switch (data.cmd) {
+                case 'offer':
+                    handleOffer(data)
+                    break
+                case 'answer':
+                    handleAnswer(data)
+                    break
+                case 'candidate':
+                    handleCandidate(data)
+                    break
+                case 'join':
+                    handleJoin(data)
+                    break
+                case 'start_stream':
+                    handleStartStream(data)
+                    break
+                case 'stop_stream':
+                    handleStopStream(data)
+                    break
+                default:
+                    console.error(new Error(`неизвестная команда: ${data.cmd}`))
+            }
+        }
+        function wsOpen() {
+            if(wsCon != null) {
+                console.error(new Error('websocket соединение уже установлено'))
+                return
+            }
+            console.log('устанавливаю WS подключение...')
+            let url = `wss://${wsUrlInput.value}/${resourceNameInput.value}/${resourceIdInput.value}?token=${jwtInput.value}`
+            console.log(`WS URL: ${url}`)
+
+            wsCon = new WebSocket(url)
+            wsCon.onopen = wsOnOpen
+            wsCon.onerror = wsOnError
+            wsCon.onmessage = wsOnMessage
+        }
+        function wsClose() {
+            if (wsCon == null) {
+                return
+            }
+            console.log('закрываю WS соединение')
+            clearInterval(wsInterval)
+            wsCon.close()
+            wsCon = null
+        }
+        function wsSend(data) {
+            console.log('отправляю данные', data)
+            wsCon.send(JSON.stringify(data))
+        }
+        //* RTC
+        function rtcOpenTeacher() {
+            console.log('устанавливаю RTC соединение')
+            if(!hasUserMedia()) {
+                console.error(new Error('нет доступа к media'))
+                return
+            }
+            if(!hasRTCPeerConnection()) {
+                console.error(new Error('нет доступа к RTC peer connection'))
+                return
+            }
+
+            navigator.getUserMedia({video:true, audio:true}, stream => {
+                videoStream = stream
+                video.srcObject = videoStream
+                rtcCon = new window.RTCPeerConnection(rtcCnf)
+                console.log('RTC peer connection', rtcCon)
+
+                rtcCon.addStream(videoStream)
+                rtcCon.onaddstream = rtcOnAddStream
+                rtcCon.onicecandidate = rtcOnIceCandidate
+                wsSend({
+                    cmd:'start_stream',
+                    params: {}
+                })
+            }, err => {console.error(new Error(err))})
+        }
+        function rtcOpenStudent() {
+            console.log('устанавливаю RTC соединение')
+            if(!hasRTCPeerConnection()) {
+                console.error(new Error('нет доступа к RTC peer connection'))
+                return
+            }
+
+            rtcCon = new window.RTCPeerConnection(rtcCnf)
+            console.log('RTC peer connection', rtcCon)
+
+            rtcCon.onaddstream = rtcOnAddStream
+            rtcCon.onicecandidate = rtcOnIceCandidate
+
+            setTimeout(() => {
+                wsSend({
+                    cmd: 'join',
+                    params: {}
+                })
+            }, 1000)
+        }
+        function rtcCloseVideoStream() {
+            if (videoStream != null) {
+                console.log('закрываю video stream')
+                videoStream.getTracks().forEach(track => {
+                    track.stop()
+                })
+                videoStream = null
+            }
+            video.srcObject = null
+        }
+        function rtcClose() {
+            rtcCloseVideoStream()
+            if (rtcCon == null) {
+                return
+            }
+            console.log('закрываю RTC')
+            rtcCon.close()
+            rtcCon.onicecandidate = null
+            rtcCon.onaddstream = null
+            rtcCon = null
+        }
+        function rtcOnAddStream(event) {
+            console.warn('входящий медиа поток...', event)
+            rtcCloseVideoStream()
+            videoStream = event.stream
+            video.srcObject = videoStream
+        }
+        function rtcOnIceCandidate(event) {
+            if (event.candidate == null) {
+                return
+            }
+            wsSend({
+                cmd: 'candidate',
+                params: {
+                    candidate: event.candidate
+                }
+            })
+        }
+        //* обработчики команд
+        function handleOffer(data) {
+            console.log('выполняю команду offer', data)
+            if (rtcCon == null) {
+                rtcOpenStudent()
+            }
+
+            console.log('применяю офер')
+            rtcCon.setRemoteDescription(new RTCSessionDescription(data.params.offer))
+
+            console.log('создаю answer')
+            rtcCon.createAnswer(answer => {
+                console.log('создан answer', answer)
+                rtcCon.setLocalDescription(answer)
+
+                wsSend({
+                    cmd: 'answer',
+                    params: {
+                        answer: answer,
+                        to: data.member.user_id
+                    }
+                })
+            }, err => {console.error(err)})
+        }
+        function handleStartStream(data) {
+            console.log('выполняю команду start_stream', data)
+            rtcOpenStudent()
+        }
+        function handleStopStream(data) {
+            console.log('выполняю команду stop_stream', data)
+            rtcClose()
+        }
+        function handleAnswer(data) {
+            console.log('выполняю команду answer', data)
+
+            console.log('применяю answer')
+            rtcCon.setRemoteDescription(data.params.answer)
+        }
+        function handleCandidate(data) {
+            console.log('выполняю команду candidate', data)
+
+            console.log('добавляю candidate')
+            rtcCon.addIceCandidate(new RTCIceCandidate(data.params.candidate))
+        }
+        function handleJoin(data) {
+            // console.log('выполняю команду join', data)
+            // rtcCreateOffer(data.params.user_id)
+        }
+
+        // *********
+        // UI
+        // *********
+        firstPageState()
+        connectionBtn.addEventListener('click', () => {
+            connectionForm.classList.add('d-none')
+            controlPanel.classList.remove('d-none')
+            videoPanel.classList.remove('d-none')
+            wsOpen()
+            setTimeout(rtcOpenStudent, 1000)
+        })
+        // startStreamBtn.addEventListener('click', () => {
+        //     rtcOpenTeacher()
+        // })
+        stopStreamBtn.addEventListener('click', () => {
+            rtcClose()
+        })
+        closeWsBtn.addEventListener('click', () => {
+            rtcClose()
+            wsClose()
+            firstPageState()
+        })
+    })
+</script>
+
+</body>
+</html>
