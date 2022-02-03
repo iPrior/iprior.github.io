@@ -26,7 +26,7 @@
             </div>
             <div class="mb-3">
                 <label for="resourceIdInput" class="form-label">Resource ID</label>
-                <input type="text" id="resourceIdInput" class="form-control" value="12767">
+                <input type="text" id="resourceIdInput" class="form-control" value="9">
             </div>
             <div class="mb-3">
                 <label for="jwtInput" class="form-label">JWT token</label>
@@ -92,16 +92,8 @@
 
         // служебное
         let wsInterval
-        let rtcCnf = {
-            "iceServers": [{
-                urls: 'turn:217.28.231.38:3478',
-                username: 'ttt',
-                credential: 'ttt',
-                credentialType: 'password'
-            },{
-                urls: 'stun:stun1.l.google.com:19302'
-            }]
-        }
+        let rtcCnf = null
+
 
         // *********
         // определение основных функций
@@ -170,6 +162,9 @@
                 case 'stop_stream':
                     handleStopStream(data)
                     break
+                case 'turn_server':
+                    handleTurnServer(data)
+                    break
                 default:
                     console.error(new Error(`неизвестная команда: ${data.cmd}`))
             }
@@ -201,35 +196,10 @@
             console.log('отправляю данные', data)
             wsCon.send(JSON.stringify(data))
         }
-        //* RTC
-        function rtcOpenTeacher() {
-            console.log('устанавливаю RTC соединение')
-            if(!hasUserMedia()) {
-                console.error(new Error('нет доступа к media'))
-                alert('нет доступа к media')
-                return
-            }
-            if(!hasRTCPeerConnection()) {
-                console.error(new Error('нет доступа к RTC peer connection'))
-                alert('браузер не поддерживает RTC peer connection')
-                return
-            }
-
-            navigator.getUserMedia({video:true, audio:true}, stream => {
-                videoStream = stream
-                video.srcObject = videoStream
-                rtcCon = new window.RTCPeerConnection(rtcCnf)
-                console.log('RTC peer connection', rtcCon)
-
-                rtcCon.addStream(videoStream)
-                rtcCon.onaddstream = rtcOnAddStream
-                rtcCon.onicecandidate = rtcOnIceCandidate
-                wsSend({
-                    cmd:'start_stream',
-                    params: {}
-                })
-            }, err => {console.error(new Error(err))})
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
+        //* RTC
         function rtcOpenStudent() {
             console.log('устанавливаю RTC соединение')
             if(!hasRTCPeerConnection()) {
@@ -238,18 +208,27 @@
                 return
             }
 
-            rtcCon = new window.RTCPeerConnection(rtcCnf)
-            console.log('RTC peer connection', rtcCon)
+           let interval
+            interval = setInterval(() => {
+                if (rtcCnf == null) {
+                    return
+                }
+                clearInterval(interval)
 
-            rtcCon.onaddstream = rtcOnAddStream
-            rtcCon.onicecandidate = rtcOnIceCandidate
+                rtcCon = new window.RTCPeerConnection(rtcCnf)
+                console.log('RTC peer connection', rtcCon)
 
-            setTimeout(() => {
-                wsSend({
-                    cmd: 'join',
-                    params: {}
-                })
+                rtcCon.onaddstream = rtcOnAddStream
+                rtcCon.onicecandidate = rtcOnIceCandidate
+
+                setTimeout(() => {
+                    wsSend({
+                        cmd: 'join',
+                        params: {}
+                    })
+                }, 1000)
             }, 1000)
+
         }
         function rtcCloseVideoStream() {
             if (videoStream != null) {
@@ -320,6 +299,19 @@
         function handleStopStream(data) {
             console.log('выполняю команду stop_stream', data)
             rtcClose()
+        }
+        function handleTurnServer(data) {
+            console.log('выполняю команду turn_server', data)
+            rtcCnf = {
+                "iceServers": [{
+                    urls: data.params.url,
+                    username: data.params.username,
+                    credential: data.params.credential,
+                    credentialType: 'password'
+                },{
+                    urls: 'stun:stun1.l.google.com:19302'
+                }]
+            }
         }
         function handleAnswer(data) {
             console.log('выполняю команду answer', data)
