@@ -18,8 +18,7 @@
         <fieldset>
             <legend>Настройки подключения WS</legend>
             <div class="input-group mb-3">
-                <span class="input-group-text" id="basic-addon1">ws://</span>
-                <input type="text" id="wsUrlInput" class="form-control" value="localhost:8888">
+                <input type="text" id="wsUrlInput" class="form-control" value="wss://snrg.site/webrtc/signaling">
             </div>
             <div class="mb-3">
                 <label for="resourceNameInput" class="form-label">Resource name</label>
@@ -27,7 +26,7 @@
             </div>
             <div class="mb-3">
                 <label for="resourceIdInput" class="form-label">Resource ID</label>
-                <input type="text" id="resourceIdInput" class="form-control" value="9">
+                <input type="text" id="resourceIdInput" class="form-control" value="12767">
             </div>
             <div class="mb-3">
                 <label for="jwtInput" class="form-label">JWT token</label>
@@ -181,7 +180,7 @@
                 return
             }
             console.log('устанавливаю WS подключение...')
-            let url = `wss://${wsUrlInput.value}/${resourceNameInput.value}/${resourceIdInput.value}?token=${jwtInput.value}`
+            let url = `${wsUrlInput.value}/${resourceNameInput.value}/${resourceIdInput.value}?token=${jwtInput.value}`
             console.log(`WS URL: ${url}`)
 
             wsCon = new WebSocket(url)
