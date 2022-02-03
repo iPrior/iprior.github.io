@@ -26,7 +26,7 @@
             </div>
             <div class="mb-3">
                 <label for="resourceIdInput" class="form-label">Resource ID</label>
-                <input type="text" id="resourceIdInput" class="form-control" value="12767">
+                <input type="text" id="resourceIdInput" class="form-control" value="9">
             </div>
             <div class="mb-3">
                 <label for="jwtInput" class="form-label">JWT token</label>
@@ -92,16 +92,7 @@
 
         // служебное
         let wsInterval
-        let rtcCnf = {
-            "iceServers": [{
-                urls: 'turn:217.28.231.38:3478',
-                username: 'ttt',
-                credential: 'ttt',
-                credentialType: 'password'
-            },{
-                urls: 'stun:stun1.l.google.com:19302'
-            }]
-        }
+        let rtcCnf = null
 
         // *********
         // определение основных функций
@@ -170,6 +161,9 @@
                 case 'stop_stream':
                     handleStopStream(data)
                     break
+                case 'turn_server':
+                    handleTurnServer(data)
+                    break
                 default:
                     console.error(new Error(`неизвестная команда: ${data.cmd}`))
             }
@@ -215,6 +209,9 @@
                 }, err => {console.error(new Error(err))})
             }
         }
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
         function rtcOpenTeacher(user_id) {
             console.log('устанавливаю RTC соединение')
             if(!hasRTCPeerConnection()) {
@@ -228,16 +225,25 @@
                 return;
             }
 
-            rtcOpenVideoStream()
-            let rtcCon = new window.RTCPeerConnection(rtcCnf)
-            console.log('RTC peer connection', rtcCon)
-            rtcCon.addStream(videoStream)
-            rtcCon.onicecandidate = function (event) {
-                rtcOnIceCandidate(event, user_id)
-            }
+            let interval
+            interval = setInterval(() => {
+                if(rtcCnf == null) {
+                    return
+                }
+                clearInterval(interval)
 
-            rtcConStudents[user_id] = rtcCon
-            rtcCreateOffer(user_id)
+                rtcOpenVideoStream()
+                let rtcCon = new window.RTCPeerConnection(rtcCnf)
+                console.log('RTC peer connection', rtcCon)
+                rtcCon.addStream(videoStream)
+                rtcCon.onicecandidate = function (event) {
+                    rtcOnIceCandidate(event, user_id)
+                }
+
+                rtcConStudents[user_id] = rtcCon
+                rtcCreateOffer(user_id)
+
+            }, 1000)
         }
         function rtcCloseVideoStream() {
             if (videoStream != null) {
@@ -293,6 +299,19 @@
         function handleStopStream(data) {
             console.log('выполняю команду stop_stream', data)
             rtcCloseStudents()
+        }
+        function handleTurnServer(data) {
+            console.log('выполняю команду turn_server', data)
+            rtcCnf = {
+                "iceServers": [{
+                    urls: data.params.url,
+                    username: data.params.username,
+                    credential: data.params.credential,
+                    credentialType: 'password'
+                },{
+                    urls: 'stun:stun1.l.google.com:19302'
+                }]
+            }
         }
         function handleAnswer(data) {
             console.log('выполняю команду answer', data)
