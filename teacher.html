@@ -26,7 +26,7 @@
             </div>
             <div class="mb-3">
                 <label for="resourceIdInput" class="form-label">Resource ID</label>
-                <input type="text" id="resourceIdInput" class="form-control" value="12767">
+                <input type="text" id="resourceIdInput" class="form-control" value="9">
             </div>
             <div class="mb-3">
                 <label for="jwtInput" class="form-label">JWT token</label>
@@ -206,6 +206,7 @@
             if (videoStream == null) {
                 if(!hasUserMedia()) {
                     console.error(new Error('нет доступа к media'))
+                    alert('нет доступа к media')
                     return
                 }
                 navigator.getUserMedia({video:true, audio:true}, stream => {
@@ -218,6 +219,7 @@
             console.log('устанавливаю RTC соединение')
             if(!hasRTCPeerConnection()) {
                 console.error(new Error('нет доступа к RTC peer connection'))
+                alert('браузер не поддерживает RTC peer connection')
                 return
             }
 
