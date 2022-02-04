@@ -26,7 +26,7 @@
             </div>
             <div class="mb-3">
                 <label for="resourceIdInput" class="form-label">Resource ID</label>
-                <input type="text" id="resourceIdInput" class="form-control" value="9">
+                <input type="text" id="resourceIdInput" class="form-control" value="12767">
             </div>
             <div class="mb-3">
                 <label for="jwtInput" class="form-label">JWT token</label>
@@ -162,8 +162,8 @@
                 case 'stop_stream':
                     handleStopStream(data)
                     break
-                case 'turn_server':
-                    handleTurnServer(data)
+                case 'ice_servers':
+                    handleIceServers(data)
                     break
                 default:
                     console.error(new Error(`неизвестная команда: ${data.cmd}`))
@@ -300,18 +300,9 @@
             console.log('выполняю команду stop_stream', data)
             rtcClose()
         }
-        function handleTurnServer(data) {
-            console.log('выполняю команду turn_server', data)
-            rtcCnf = {
-                "iceServers": [{
-                    urls: data.params.url,
-                    username: 'ttt',
-                    credential: 'ttt',
-                    credentialType: 'password'
-                },{
-                    urls: 'stun:stun1.l.google.com:19302'
-                }]
-            }
+        function handleIceServers(data) {
+            console.log('выполняю команду ice_servers', data)
+            rtcCnf = data.params
         }
         function handleAnswer(data) {
             console.log('выполняю команду answer', data)
