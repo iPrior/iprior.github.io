@@ -44,7 +44,7 @@
     </div>
     <div class="row" id="videoPanel">
         <div class="col">
-            <video id = "localVideo" autoplay></video>
+            <video id = "localVideo" autoplay playsinlne></video>
         </div>
     </div>
 </div>
@@ -261,7 +261,7 @@
                 rtcConStudents.forEach(c => {
                     c.close()
                     c.onicecandidate = null
-                    c.onaddstream = null
+                    c.ontrack = null
                 })
                 rtcConStudents = {}
             }
