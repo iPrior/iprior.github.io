@@ -44,7 +44,7 @@
     </div>
     <div class="row" id="videoPanel">
         <div class="col">
-            <video id = "localVideo" autoplay></video>
+            <video id = "localVideo" autoplay playsinlne></video>
         </div>
     </div>
 </div>
@@ -218,7 +218,7 @@
                 rtcCon = new window.RTCPeerConnection(rtcCnf)
                 console.log('RTC peer connection', rtcCon)
 
-                rtcCon.onaddstream = rtcOnAddStream
+                rtcCon.ontrack = rtcOnAddStream
                 rtcCon.onicecandidate = rtcOnIceCandidate
 
                 setTimeout(() => {
@@ -248,7 +248,7 @@
             console.log('закрываю RTC')
             rtcCon.close()
             rtcCon.onicecandidate = null
-            rtcCon.onaddstream = null
+            rtcCon.ontrack = null
             rtcCon = null
         }
         function rtcOnAddStream(event) {
@@ -256,6 +256,16 @@
             rtcCloseVideoStream()
             videoStream = event.stream
             video.srcObject = videoStream
+
+            if (event.streams && event.streams[0]) {
+                video.srcObject = event.streams[0];
+            } else {
+                if (! videoStream) {
+                    videoStream = new MediaStream();
+                    video.srcObject = videoStream;
+                }
+                videoStream.addTrack(event.track);
+            }
         }
         function rtcOnIceCandidate(event) {
             if (event.candidate == null) {
@@ -269,17 +279,17 @@
             })
         }
         //* обработчики команд
-        function handleOffer(data) {
+        async function handleOffer(data) {
             console.log('выполняю команду offer', data)
             if (rtcCon == null) {
                 rtcOpenStudent()
             }
 
             console.log('применяю офер')
-            rtcCon.setRemoteDescription(new RTCSessionDescription(data.params.offer))
+            await rtcCon.setRemoteDescription(new RTCSessionDescription(data.params.offer))
 
             console.log('создаю answer')
-            rtcCon.createAnswer(answer => {
+            await rtcCon.createAnswer(answer => {
                 console.log('создан answer', answer)
                 rtcCon.setLocalDescription(answer)
 
