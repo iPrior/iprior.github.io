@@ -44,7 +44,7 @@
     </div>
     <div class="row" id="videoPanel">
         <div class="col">
-            <video id = "localVideo" autoplay playsinlne></video>
+            <video id = "localVideo" autoplay playsinlne muted></video>
         </div>
     </div>
 </div>
@@ -133,7 +133,7 @@
                 console.warn('websocket соединение закрыто')
                 clearInterval(wsInterval)
                 wsClose()
-                rtcCloseStudents()
+                rtcCloseStudentsAll()
             }
         }
         function wsOnMessage(msg) {
@@ -163,6 +163,9 @@
                     break
                 case 'ice_servers':
                     handleIceServers(data)
+                    break
+                case 'leave':
+                    handleLeave(data)
                     break
                 default:
                     console.error(new Error(`неизвестная команда: ${data.cmd}`))
@@ -255,7 +258,7 @@
             }
             video.srcObject = null
         }
-        function rtcCloseStudents() {
+        function rtcCloseStudentsAll() {
             rtcCloseVideoStream()
             if (rtcConStudents.hasOwnProperty('forEach')){
                 rtcConStudents.forEach(c => {
@@ -264,6 +267,14 @@
                     c.ontrack = null
                 })
                 rtcConStudents = {}
+            }
+        }
+        function rtcCloseStudents(user_id) {
+            if (rtcConStudents.hasOwnProperty(user_id)) {
+                rtcConStudents[user_id].close()
+                rtcConStudents[user_id].onicecandidate = null
+                rtcConStudents[user_id].ontrack = null
+                delete rtcConStudents[user_id]
             }
         }
         function rtcOnIceCandidate(event, user_id) {
@@ -298,7 +309,7 @@
         }
         function handleStopStream(data) {
             console.log('выполняю команду stop_stream', data)
-            rtcCloseStudents()
+            rtcCloseStudentsAll()
         }
         function handleIceServers(data) {
             console.log('выполняю команду ice_servers', data)
@@ -311,6 +322,10 @@
                 rtcConStudents[data.member.user_id].setRemoteDescription(data.params.answer)
             }
 
+        }
+        function handleLeave(data) {
+            console.info("пользователь покинул трансляцию", data.member)
+            rtcCloseStudents(data.member.user_id)
         }
         function handleCandidate(data) {
             console.log('выполняю команду candidate', data)
@@ -351,7 +366,7 @@
             })
         })
         closeWsBtn.addEventListener('click', () => {
-            rtcCloseStudents()
+            rtcCloseStudentsAll()
             wsClose()
             firstPageState()
         })
