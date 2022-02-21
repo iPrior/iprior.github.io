@@ -237,7 +237,6 @@
                 rtcCon.onnegotiationneeded = (arg) => { console.info(user_id, 'onnegotiationneeded', arg)}
                 rtcCon.onsignalingstatechange = (arg) => { console.info(user_id, 'onsignalingstatechange', arg)}
                 rtcCon.ontrack = (arg) => { console.info(user_id, 'ontrack', arg)}
-                rtcCon.onaddstream = (arg) => { console.info(user_id, 'onaddstream', arg)}
                 rtcCon.onaddtrack = (arg) => { console.info(user_id, 'onaddtrack', arg)}
 
                 rtcCon.addStream(videoStream)
