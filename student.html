@@ -218,11 +218,10 @@
                 rtcCon = new window.RTCPeerConnection(rtcCnf)
                 console.log('RTC peer connection', rtcCon)
 
-                rtcCon.onicegatheringstatechange = (arg) => { console.info(user_id, 'onicegatheringstatechange', arg)}
-                rtcCon.onnegotiationneeded = (arg) => { console.info(user_id, 'onnegotiationneeded', arg)}
-                rtcCon.onsignalingstatechange = (arg) => { console.info(user_id, 'onsignalingstatechange', arg)}
-                rtcCon.onaddstream = (arg) => { console.info(user_id, 'onaddstream', arg)}
-                rtcCon.onaddtrack = (arg) => { console.info(user_id, 'onaddtrack', arg)}
+                rtcCon.onicegatheringstatechange = (arg) => { console.info('onicegatheringstatechange', arg)}
+                rtcCon.onnegotiationneeded = (arg) => { console.info('onnegotiationneeded', arg)}
+                rtcCon.onsignalingstatechange = (arg) => { console.info('onsignalingstatechange', arg)}
+                rtcCon.onaddtrack = (arg) => { console.info('onaddtrack', arg)}
 
                 rtcCon.ontrack = rtcOnAddStream
                 rtcCon.onicecandidate = rtcOnIceCandidate
