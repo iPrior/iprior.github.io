@@ -143,9 +143,6 @@
             console.log('данные сообщения', data)
 
             switch (data.cmd) {
-                case 'offer':
-                    handleOffer(data)
-                    break
                 case 'answer':
                     handleAnswer(data)
                     break
@@ -212,9 +209,6 @@
                 }, err => {console.error(new Error(err))})
             }
         }
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
         function rtcOpenTeacher(user_id) {
             console.log('устанавливаю RTC соединение')
             if(!hasRTCPeerConnection()) {
@@ -238,11 +232,18 @@
                 rtcOpenVideoStream()
                 let rtcCon = new window.RTCPeerConnection(rtcCnf)
                 console.log('RTC peer connection', rtcCon)
+
+                rtcCon.onicegatheringstatechange = (arg) => { console.info(user_id, 'onicegatheringstatechange', arg)}
+                rtcCon.onnegotiationneeded = (arg) => { console.info(user_id, 'onnegotiationneeded', arg)}
+                rtcCon.onsignalingstatechange = (arg) => { console.info(user_id, 'onsignalingstatechange', arg)}
+                rtcCon.ontrack = (arg) => { console.info(user_id, 'ontrack', arg)}
+                rtcCon.onaddstream = (arg) => { console.info(user_id, 'onaddstream', arg)}
+                rtcCon.onaddtrack = (arg) => { console.info(user_id, 'onaddtrack', arg)}
+
                 rtcCon.addStream(videoStream)
                 rtcCon.onicecandidate = function (event) {
                     rtcOnIceCandidate(event, user_id)
                 }
-
                 rtcConStudents[user_id] = rtcCon
                 rtcCreateOffer(user_id)
 
