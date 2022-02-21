@@ -218,10 +218,10 @@
                 rtcCon = new window.RTCPeerConnection(rtcCnf)
                 console.log('RTC peer connection', rtcCon)
 
-                rtcCon.onicegatheringstatechange = (arg) => { console.info('onicegatheringstatechange', arg)}
-                rtcCon.onnegotiationneeded = (arg) => { console.info('onnegotiationneeded', arg)}
-                rtcCon.onsignalingstatechange = (arg) => { console.info('onsignalingstatechange', arg)}
-                rtcCon.onaddtrack = (arg) => { console.info('onaddtrack', arg)}
+                rtcCon.onicegatheringstatechange =rtcLogEvent
+                rtcCon.onnegotiationneeded =rtcLogEvent
+                rtcCon.onsignalingstatechange =rtcLogEvent
+                rtcCon.onaddtrack =rtcLogEvent
 
                 rtcCon.ontrack = rtcOnAddStream
                 rtcCon.onicecandidate = rtcOnIceCandidate
@@ -234,6 +234,9 @@
                 }, 1000)
             }, 1000)
 
+        }
+        function rtcLogEvent(event) {
+            console.info('EVENT', event.type, event.target)
         }
         function rtcCloseVideoStream() {
             if (videoStream != null) {
