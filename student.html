@@ -253,6 +253,7 @@
         }
         function rtcOnAddStream(event) {
             console.warn('входящий медиа поток...', event)
+            if (videoStream != null) { console.Error('медиа поток уэе был...') }
             rtcCloseVideoStream()
             videoStream = event.stream
             video.srcObject = videoStream
