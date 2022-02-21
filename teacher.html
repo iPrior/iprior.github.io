@@ -233,11 +233,11 @@
                 let rtcCon = new window.RTCPeerConnection(rtcCnf)
                 console.log('RTC peer connection', rtcCon)
 
-                rtcCon.onicegatheringstatechange = (arg) => { console.info(user_id, 'onicegatheringstatechange', arg)}
-                rtcCon.onnegotiationneeded = (arg) => { console.info(user_id, 'onnegotiationneeded', arg)}
-                rtcCon.onsignalingstatechange = (arg) => { console.info(user_id, 'onsignalingstatechange', arg)}
-                rtcCon.ontrack = (arg) => { console.info(user_id, 'ontrack', arg)}
-                rtcCon.onaddtrack = (arg) => { console.info(user_id, 'onaddtrack', arg)}
+                rtcCon.onicegatheringstatechange =rtcLogEvent
+                rtcCon.onnegotiationneeded =rtcLogEvent
+                rtcCon.onsignalingstatechange =rtcLogEvent
+                rtcCon.ontrack =rtcLogEvent
+                rtcCon.onaddtrack =rtcLogEvent
 
                 rtcCon.addStream(videoStream)
                 rtcCon.onicecandidate = function (event) {
@@ -247,6 +247,9 @@
                 rtcCreateOffer(user_id)
 
             }, 1000)
+        }
+        function rtcLogEvent(event) {
+            console.info('EVENT', event.type, event.target)
         }
         function rtcCloseVideoStream() {
             if (videoStream != null) {
