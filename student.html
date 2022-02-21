@@ -259,11 +259,7 @@
         function rtcOnAddStream(event) {
             console.warn('входящий медиа поток...', event)
             console.log(videoStream, video.srcObject)
-            if (typeof videoStream !== 'undefined' || videoStream != null || video.srcObject != null) {
-                console.error("видео поток был получен ранее. Игнорирую новый поток...")
-                return
-            }
-            rtcCloseVideoStream()
+            // rtcCloseVideoStream()
             videoStream = event.stream
             video.srcObject = videoStream
 
