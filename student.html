@@ -218,6 +218,12 @@
                 rtcCon = new window.RTCPeerConnection(rtcCnf)
                 console.log('RTC peer connection', rtcCon)
 
+                rtcCon.onicegatheringstatechange = (arg) => { console.info(user_id, 'onicegatheringstatechange', arg)}
+                rtcCon.onnegotiationneeded = (arg) => { console.info(user_id, 'onnegotiationneeded', arg)}
+                rtcCon.onsignalingstatechange = (arg) => { console.info(user_id, 'onsignalingstatechange', arg)}
+                rtcCon.onaddstream = (arg) => { console.info(user_id, 'onaddstream', arg)}
+                rtcCon.onaddtrack = (arg) => { console.info(user_id, 'onaddtrack', arg)}
+
                 rtcCon.ontrack = rtcOnAddStream
                 rtcCon.onicecandidate = rtcOnIceCandidate
 
@@ -253,7 +259,11 @@
         }
         function rtcOnAddStream(event) {
             console.warn('входящий медиа поток...', event)
-            if (videoStream != null) { console.Error('медиа поток уэе был...'); return; }
+            console.log(videoStream, video.srcObject)
+            if (typeof videoStream !== 'undefined' || videoStream != null || video.srcObject != null) {
+                console.error("видео поток был получен ранее. Игнорирую новый поток...")
+                return
+            }
             rtcCloseVideoStream()
             videoStream = event.stream
             video.srcObject = videoStream
