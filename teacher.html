@@ -42,10 +42,37 @@
             <button id="closeWsBtn" type="button" class="btn btn-danger">Закрыть WS соединение</button>
         </div>
     </div>
+    <hr>
     <div class="row" id="videoPanel">
         <div class="col">
-            <video id = "localVideo" autoplay playsinlne muted></video>
+            <div class="row">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="switchVideoTrack" value="screen">
+                    <label class="form-check-label" for="switchVideoTrack">Переключение видео (камера / экран)</label>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="enabled" id="switchAudioScreen">
+                        <label class="form-check-label" for="switchAudioScreen">
+                            Включить звук с экрана
+                        </label>
+                    </div>
+                </div>
+            </div>
         </div>
+        <dic class="col">
+            <div class="row">
+                <div class="col-sm-12 col-6">
+                    <video id = "localVideo" autoplay playsinlne muted></video>
+                </div>
+                <div class="col-sm-12 col-6">
+                    <video id = "screenVideo" autoplay playsinlne muted></video>
+                </div>
+            </div>
+        </dic>
+
     </div>
 </div>
 
@@ -61,39 +88,44 @@
 -->
 
 <script type="text/javascript">
+    // *********
+    // определение переменных
+    // *********
+
+    // форма подключения
+    let connectionForm = document.querySelector('#connectionForm')
+    let wsUrlInput = document.querySelector('#wsUrlInput')
+    let resourceNameInput = document.querySelector('#resourceNameInput')
+    let resourceIdInput = document.querySelector('#resourceIdInput')
+    let jwtInput = document.querySelector('#jwtInput')
+    let connectionBtn = document.querySelector('#connectionBtn')
+
+    // панель управления
+    let controlPanel = document.querySelector('#controlPanel')
+    let startStreamBtn = document.querySelector('#startStreamBtn')
+    let stopStreamBtn = document.querySelector('#stopStreamBtn')
+    let closeWsBtn = document.querySelector('#closeWsBtn')
+
+    let switchVideoTrack = document.querySelector('#switchVideoTrack')
+    let switchAudioScreen = document.querySelector('#switchAudioScreen')
+
+    // видео
+    let videoPanel = document.querySelector('#videoPanel')
+    let video = document.querySelector('#localVideo')
+    let screen = document.querySelector('#screenVideo')
+
+    // соединения
+    let wsCon
+    let rtcConStudents = {}
+    let videoStream
+    let screenStream
+
+    // служебное
+    let wsInterval
+    let rtcCnf = null
+
     document.addEventListener('DOMContentLoaded', () => {
         console.log('DOMContentLoaded')
-        // *********
-        // определение переменных
-        // *********
-
-        // форма подключения
-        let connectionForm = document.querySelector('#connectionForm')
-        let wsUrlInput = document.querySelector('#wsUrlInput')
-        let resourceNameInput = document.querySelector('#resourceNameInput')
-        let resourceIdInput = document.querySelector('#resourceIdInput')
-        let jwtInput = document.querySelector('#jwtInput')
-        let connectionBtn = document.querySelector('#connectionBtn')
-
-        // панель управления
-        let controlPanel = document.querySelector('#controlPanel')
-        let startStreamBtn = document.querySelector('#startStreamBtn')
-        let stopStreamBtn = document.querySelector('#stopStreamBtn')
-        let closeWsBtn = document.querySelector('#closeWsBtn')
-
-        // видео
-        let videoPanel = document.querySelector('#videoPanel')
-        let video = document.querySelector('#localVideo')
-
-        // соединения
-        let wsCon
-        let rtcConStudents = {}
-        let videoStream
-
-        // служебное
-        let wsInterval
-        let rtcCnf = null
-
         // *********
         // определение основных функций
         // *********
@@ -103,6 +135,9 @@
             controlPanel.classList.add('d-none')
             videoPanel.classList.add('d-none')
             connectionForm.classList.remove('d-none')
+            switchVideoTrack.checked = false
+            switchAudioScreen.checked = false
+            switchAudioScreen.disabled = true
         }
         // определение RTC peer connection
         function hasRTCPeerConnection() {
@@ -122,6 +157,8 @@
         //* websocket
         function wsOnOpen() {
             console.log('установлено WS подключение')
+            rtcOpenVideoStream()
+            rtcOpenScreenVideoStream()
             wsInterval = setInterval(wsPing, 1000)
         }
         function wsOnError(err) {
@@ -209,6 +246,21 @@
                 }, err => {console.error(new Error(err))})
             }
         }
+        function rtcOpenScreenVideoStream() {
+            console.debug('open screen stream')
+            if (screenStream == null) {
+                screenStream = navigator.mediaDevices.getDisplayMedia({video:true, audio:true}).then(
+                    stream => {
+                        console.log("!!!", stream)
+                        screen.srcObject = stream
+                        screenStream = stream
+                    },
+                    err => {
+                        console.error('screen stream error', err)
+                    }
+                )
+            }
+        }
         function rtcOpenTeacher(user_id) {
             console.log('устанавливаю RTC соединение')
             if(!hasRTCPeerConnection()) {
@@ -229,7 +281,6 @@
                 }
                 clearInterval(interval)
 
-                rtcOpenVideoStream()
                 let rtcCon = new window.RTCPeerConnection(rtcCnf)
                 console.log('RTC peer connection', rtcCon)
 
@@ -240,6 +291,8 @@
                 rtcCon.onaddtrack =rtcLogEvent
 
                 rtcCon.addStream(videoStream)
+                // rtcCon.addStream(screenStream)
+
                 rtcCon.onicecandidate = function (event) {
                     rtcOnIceCandidate(event, user_id)
                 }
@@ -309,6 +362,7 @@
         function handleStartStream(data) {
             console.log('выполняю команду start_stream', data)
             rtcOpenVideoStream()
+            rtcOpenScreenVideoStream()
         }
         function handleStopStream(data) {
             console.log('выполняю команду stop_stream', data)
@@ -373,6 +427,43 @@
             wsClose()
             firstPageState()
         })
+        switchVideoTrack.addEventListener('change', () => {
+            switchAudioScreen.checked = false
+            switchAudioScreen.disabled = !switchVideoTrack.checked
+
+            if (videoStream != null && screenStream != null) {
+                if (switchVideoTrack.checked) {
+                    replaceVideoTrack(getVideoTrack(screenStream))
+                } else {
+                    replaceVideoTrack(getVideoTrack(videoStream))
+                }
+            }
+
+        })
+
+        function getVideoTrack(stream) {
+            for (let k in stream.getTracks()) {
+                if (stream.getTracks()[k].kind === 'video') {
+                    return stream.getTracks()[k]
+                }
+            }
+        }
+
+        function replaceVideoTrack(track) {
+            for (let k in rtcConStudents) {
+                if (rtcConStudents.hasOwnProperty(k)) {
+                    let con = rtcConStudents[k]
+                    console.log('switch track', k, con)
+                    for (let s in con.getSenders()) {
+                        console.log('track', k, con.getSenders()[s].track.kind, con.getSenders()[s])
+                        if (con.getSenders()[s].track.kind === 'video') {
+                            console.log('replace track', k, con.getSenders()[s].track, 'to', track)
+                            con.getSenders()[s].replaceTrack(track)
+                        }
+                    }
+                }
+            }
+        }
     })
 </script>
 
