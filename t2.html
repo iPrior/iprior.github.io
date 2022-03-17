@@ -226,7 +226,9 @@
             rtcMembersPeerCons[data.member.user_id].acceptAnswer(data.params.answer)
         })
         appendCmdHandler('candidate', data => {
-            rtcMembersPeerCons[data.member.user_id].addCandidate(data.params)
+            if(rtcMembersPeerCons.hasOwnProperty(data.member.user_id)) {
+                rtcMembersPeerCons[data.member.user_id].addCandidate(data.params)
+            }
         })
         appendCmdHandler('leave', data => {
             rtcMembersPeerCons[data.member.user_id].close()
