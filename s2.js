@@ -11,12 +11,9 @@ let btnConnect = document.querySelector('#btnConnect')
 
 let btnDisconnect = document.querySelector('#btnDisconnect')
 
-let switchVideoTrack = document.querySelector('#switchVideoTrack')
-
 let membersListContainer = document.querySelector('#membersListContainer')
-
-let teacherStream = document.querySelector('#teacherStream')
 let streamCamera = document.querySelector('#streamCamera')
+let teacherCamera = document.querySelector('#teacherStream')
 
 let log = console
 
@@ -106,6 +103,38 @@ class rtcCon {
         this.outRtc = null
         this.inpRtc = null
         this.camera = camera
+        this.recSenders = {}
+    }
+
+    close() {
+        if (this.inpRtc) {
+            this.inpRtc.close()
+        }
+        if (this.outRtc) {
+            this.outRtc.close()
+        }
+        if (this.camera) {
+            this.camera.muted = true
+        }
+    }
+
+    addAudioTrackToRecorder(recorder) {
+        console.log('ADD REC 0', this.inpRtc)
+        let remoteStream = this.inpRtc.getRemoteStreams()[0]
+        let recId = recorder.member.user_id
+        console.log('ADD REC 1', remoteStream)
+        this.recSenders[recId] = recorder.outRtc.addTrack(remoteStream.getAudioTracks()[0], remoteStream)
+
+        console.log('ADD REC 2', this.recSenders[recId])
+        console.log('ADD REC 3', recorder.outRtc.addTransceiver(remoteStream.getAudioTracks()[0]))
+    }
+
+    removeAudioTrackToRecorder(recorder) {
+        let recId = recorder.member.user_id
+        if (this.recSenders.hasOwnProperty(recId)) {
+            recorder.outRtc.removeTrack(this.recSenders[recId])
+        }
+        delete this.recSenders[recId]
     }
 
     createRtc() {
@@ -134,7 +163,6 @@ class rtcCon {
         let member = this.member
         if (!this.outRtc) {
             this.outRtc = this.createRtc(true)
-            console.warn('camera', cameraStream)
             this.outRtc.addStream(this.camera)
             this.outRtc.onicecandidate = (event) => {
                 wsSend({
@@ -240,10 +268,10 @@ class rtcCon {
         }
 
         let rtcCon
-        if (params.type === 'inp') {
-            rtcCon = this.outRtc
-        } else if (params.type === 'out') {
+        if (params.type === 'out') {
             rtcCon = this.inpRtc
+        } else {
+            rtcCon = this.outRtc
         }
 
         if (!rtcCon) {
@@ -314,6 +342,92 @@ function rtcOpenCameraStream(opt) {
             })
         }
 
+    })
+}
+function rtcOpenScreenStream() {
+    return new Promise((resolver, reject) => {
+        log.info('инициализирую демонстрацию экрана')
+        navigator.mediaDevices.getDisplayMedia({video:true, audio:false}).then(
+            stream => {
+                resolver(stream)
+            },
+            err => {
+                reject(err)
+            }
+        )
+    })
+}
+
+function mutedCamera(stream, isMuted) {
+    log.info('audio track set muted', isMuted, stream)
+    stream.getAudioTracks().forEach((v) => {
+        log.debug('audio track set muted', isMuted, v)
+        v.enabled = isMuted !== true
+    })
+}
+
+function rtcCloseAll() {
+    for (let k in rtcMembersPeerCons) {
+        if (rtcMembersPeerCons.hasOwnProperty(k)) {
+            rtcMembersPeerCons[k].close()
+            delete rtcMembersPeerCons[k]
+        }
+    }
+}
+
+function rtcRemoveAudioTrackToRecorders(srcUserId) {
+    log.debug('rtcRemoveAudioTrackToRecorders')
+    let src
+    let recorders = []
+    for (let k in rtcMembersPeerCons) {
+        if (rtcMembersPeerCons.hasOwnProperty(k)) {
+            if (rtcMembersPeerCons[k].member.is_recorder) {
+                recorders.push(rtcMembersPeerCons[k])
+            } else if (rtcMembersPeerCons[k].member.user_id === srcUserId) {
+                src = rtcMembersPeerCons[k]
+            }
+        }
+    }
+
+    if (recorders.length === 0) {
+        log.error('нет ни одного рекордера')
+        return
+    }
+    if (!src) {
+        log.error('не найден участник', srcUserId)
+        return
+    }
+
+    recorders.forEach(r => {
+        src.removeAudioTrackToRecorder(r)
+    })
+}
+
+function rtcAddAudioTrackToRecorders(srcUserId) {
+    log.debug('rtcAddAudioTrackToRecorders')
+    let src
+    let recorders = []
+    for (let k in rtcMembersPeerCons) {
+        if (rtcMembersPeerCons.hasOwnProperty(k)) {
+            if (rtcMembersPeerCons[k].member.is_recorder) {
+                recorders.push(rtcMembersPeerCons[k])
+            } else if (rtcMembersPeerCons[k].member.user_id === srcUserId) {
+                src = rtcMembersPeerCons[k]
+            }
+        }
+    }
+
+    if (recorders.length === 0) {
+        log.error('нет ни одного рекордера')
+        return
+    }
+    if (!src) {
+        log.error('не найден участник', srcUserId)
+        return
+    }
+
+    recorders.forEach(r => {
+        src.addAudioTrackToRecorder(r)
     })
 }
 
