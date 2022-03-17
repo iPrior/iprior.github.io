@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
+    <title>Teacher v2 :: WebRTC</title>
+</head>
+<body>
+<div class="container mt-2 mb-2">
+    <h1>Teacher v2 :: Webrtc</h1>
+</div>
+<div class="container" id="connectionForm">
+    <h4>Настройки подключения WS</h4>
+    <div class="row">
+        <div class="col">
+            <form>
+                <div class="mb-3">
+                    <label for="inpSignalingHost" class="form-label">Signaling host</label>
+                    <input type="text" class="form-control" id="inpSignalingHost" _value="wss://snrg.site/webrtc/signaling" value="ws://192.168.3.9:8080/webrtc/signaling">
+                </div>
+                <div class="mb-3">
+                    <label for="inpResourceName" class="form-label">Resource name</label>
+                    <input type="text" class="form-control" id="inpResourceName" value="lesson">
+                </div>
+                <div class="mb-3">
+                    <label for="inpResourceId" class="form-label">Resource ID</label>
+                    <input type="text" class="form-control" id="inpResourceId" value="12767">
+                </div>
+                <div class="mb-3">
+                    <label for="inpJWT" class="form-label">JWT token</label>
+                    <input type="text" class="form-control" id="inpJWT" value="teacher">
+                </div>
+                <button type="button" class="btn btn-primary" id="btnConnect">Connect</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="container" id="webrtcForm">
+    <h4>Трансляция</h4>
+    <div class="row">
+        <div class="col">
+            <div class="btn-group" role="group" aria-label="Basic mixed styles example">
+                <button id="btnStartStream" type="button" class="btn btn-success">Начать трансляцию</button>
+                <button id="btnStopStream" type="button" class="btn btn-warning" disabled>Завершить трансляцию</button>
+                <button id="btnDisconnect" type="button" class="btn btn-danger">Закрыть соединение</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="container mt-2" id="teacherForm">
+    <hr>
+    <div class="row">
+        <div class="col">
+            <video id="streamCamera" style="width: 18rem;" autoplay playsinlne muted></video>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="switchVideoTrack" value="screen">
+                <label class="form-check-label" for="switchVideoTrack">Переключение видео (камера / экран)</label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container mt-2" id="membersForm">
+    <hr>
+    <h4>Список участников</h4>
+    <div class="row" id="membersListContainer">
+<!--        <div class="col">-->
+<!--            <div class="card mb-2" style="width: 18rem;">-->
+<!--                <video autoplay muted></video>-->
+<!--                <div class="card-body">-->
+<!--                    <h5 class="card-title">Петров Василий</h5>-->
+<!--                    <a href="#" class="btn btn-outline-info">Mic</a>-->
+<!--                    <a href="#" class="btn btn-outline-danger">Disconnect</a>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+    </div>
+</div>
+
+<!-- Optional JavaScript; choose one of the two! -->
+
+<script type="text/javascript" src="s2.js"></script>
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', () => {
+        initForms()
+        regHandlers()
+        btnConnect.addEventListener('click', clkWsOpen)
+        btnDisconnect.addEventListener('click', () => {
+            initForms()
+            rtcCloseAll()
+            wsClose()
+            window.location = window.location
+        })
+        btnStartStream.addEventListener('click', () => {
+            wsSend({cmd:'start_stream'})
+        })
+        btnStopStream.addEventListener('click', () => {
+            rtcCloseAll()
+            btnStartStream.disabled=false
+            btnStopStream.disabled=true
+            membersListContainer.innerHTML = ''
+        })
+    })
+
+    function initForms() {
+        btnStopStream.disabled=true
+        btnStartStream.disabled=false
+        connectionForm.classList.remove('d-none')
+        webrtcForm.classList.add('d-none')
+        teacherForm.classList.add('d-none')
+        membersForm.classList.add('d-none')
+    }
+
+    function switchForms() {
+        connectionForm.classList.add('d-none')
+        webrtcForm.classList.remove('d-none')
+        teacherForm.classList.remove('d-none')
+        membersForm.classList.remove('d-none')
+    }
+
+    function clkWsOpen() {
+        let url = `${inpSignalingHost.value}/${inpResourceName.value}/${inpResourceId.value}?token=${inpJWT.value}`
+        rtcOpenCameraStream({video:true, audio:false}).then(
+            stream => {
+                cameraStream = stream
+                streamCamera.srcObject = stream
+                switchForms()
+                wsOpen(url)
+            },
+            err => {
+                console.error(err)
+            }
+        )
+
+        rtcOpenScreenStream().then(
+            stream => {
+                screenStream = stream
+            },
+            err => {
+                console.error(err)
+            }
+        )
+    }
+
+    function appendMemberCard(member) {
+        let templ = document.createElement('template')
+        let html = `<div class="col" id="memberCard-${member.user_id}">
+            <div class="card mb-2" style="width: 18rem;">
+                <img style="width: 18rem" src="${member.avatar_url}" alt="${member.name}">
+                <video id="videoStream-${member.user_id}" autoplay muted></video>
+                <div class="card-body">
+                    <h5 class="card-title">${member.name}</h5>
+                    <button type="button" id="micMuted-${member.user_id}" class="btn btn-outline-info">Mic</button>
+                    <button type="button" id="disconnect-${member.user_id}" class="btn btn-outline-danger">Disconnect</button>
+                </div>
+            </div>
+         </div>`
+        templ.innerHTML = html.trim()
+        membersListContainer.appendChild(templ.content.firstChild)
+
+        document.querySelector(`#micMuted-${member.user_id}`).addEventListener('click', e => {
+
+            wsSend({cmd:'mic-muted', params:{state:e.target.classList.contains('btn-info'), to: member.user_id}})
+
+            document.querySelector(`#videoStream-${member.user_id}`).muted = e.target.classList.contains('btn-info')
+            if (e.target.classList.contains('btn-info')) {
+                e.target.classList.remove('btn-info')
+                e.target.classList.add('btn-outline-info')
+            } else {
+                e.target.classList.add('btn-info')
+                e.target.classList.remove('btn-outline-info')
+            }
+        })
+        document.querySelector(`#disconnect-${member.user_id}`).addEventListener('click', e => {
+            rtcMembersPeerCons[member.user_id].close()
+            delete rtcMembersPeerCons[member.user_id]
+            document.querySelector(`#memberCard-${member.user_id}`).remove()
+        })
+    }
+
+    function regHandlers() {
+        appendCmdHandler('ice_servers', data => {
+            console.log('ice_servers')
+            rtcCnf = data.params
+            switchForms()
+        })
+        appendCmdHandler('start_stream', data => {
+            btnStopStream.disabled=false
+            btnStartStream.disabled=true
+        })
+        appendCmdHandler('join', data => {
+            if(!btnStartStream.disabled) {
+                return
+            }
+            appendMemberCard(data.member)
+            if (!rtcMembersPeerCons.hasOwnProperty(data.member.user_id)) {
+                let domVideo = document.querySelector(`#videoStream-${data.member.user_id}`)
+                rtcMembersPeerCons[data.member.user_id] = new rtcCon(data.member, domVideo, cameraStream)
+            }
+            rtcMembersPeerCons[data.member.user_id].createOffer()
+        })
+        appendCmdHandler('offer', data => {
+            if (!rtcMembersPeerCons.hasOwnProperty(data.member.user_id)) {
+                appendMemberCard(data.member)
+                let domVideo = document.querySelector(`#videoStream-${data.member.user_id}`)
+                rtcMembersPeerCons[data.member.user_id] = new rtcCon(data.member, domVideo, cameraStream)
+            }
+            rtcMembersPeerCons[data.member.user_id].acceptOffer(data.params.offer)
+            rtcMembersPeerCons[data.member.user_id].createAnswer()
+            rtcMembersPeerCons[data.member.user_id].createOffer()
+
+        })
+        appendCmdHandler('answer', data => {
+            rtcMembersPeerCons[data.member.user_id].acceptAnswer(data.params.answer)
+        })
+        appendCmdHandler('candidate', data => {
+            rtcMembersPeerCons[data.member.user_id].addCandidate(data.params)
+        })
+        appendCmdHandler('leave', data => {
+            rtcMembersPeerCons[data.member.user_id].close()
+            delete rtcMembersPeerCons[data.member.user_id]
+            if(document.querySelector(`#memberCard-${data.member.user_id}`)) {
+                document.querySelector(`#memberCard-${data.member.user_id}`).remove()
+            }
+        })
+        appendCmdHandler('mic-muted', data => {
+            if (data.params.state === false) {
+                rtcAddAudioTrackToRecorders(data.params.to)
+            } else {
+                rtcRemoveAudioTrackToRecorders(data.params.to)
+            }
+        })
+    }
+</script>
+
+<!-- Option 1: Bootstrap Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+
+<!-- Option 2: Separate Popper and Bootstrap JS -->
+<!--
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js" integrity="sha384-7+zCNj/IqJ95wo16oMtfsKbZ9ccEh31eOz1HGyDuCQ6wgnyJNSYdrPa03rtR1zdB" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js" integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13" crossorigin="anonymous"></script>
+-->
+
+
+</body>
+</html>
