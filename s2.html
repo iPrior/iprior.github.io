@@ -21,7 +21,7 @@
             <form>
                 <div class="mb-3">
                     <label for="inpSignalingHost" class="form-label">Signaling host</label>
-                    <input type="text" class="form-control" id="inpSignalingHost" value="wss://snrg.site/webrtc/signaling" _value="ws://192.168.3.9:8080/webrtc/signaling">
+                    <input type="text" class="form-control" id="inpSignalingHost" _value="wss://snrg.site/webrtc/signaling" value="ws://192.168.3.9:8080/webrtc/signaling">
                 </div>
                 <div class="mb-3">
                     <label for="inpResourceName" class="form-label">Resource name</label>
@@ -57,9 +57,11 @@
     <hr>
     <div class="row">
         <div class="col">
+            <h3>Моя камера</h3>
             <video id="streamCamera" style="width: 18rem;" autoplay playsinlne muted></video>
         </div>
         <div class="col">
+            <h3>Преподаватель</h3>
             <video id="teacherStream" style="width: 18rem;" autoplay playsinlne ></video>
         </div>
     </div>
@@ -94,6 +96,7 @@
             initForms()
             rtcCloseAll()
             wsClose()
+            window.location = window.location
         })
     })
 
@@ -115,6 +118,7 @@
         let url = `${inpSignalingHost.value}/${inpResourceName.value}/${inpResourceId.value}?token=${inpJWT.value}`
         rtcOpenCameraStream({video:true, audio:true}).then(
             camera => {
+                mutedCamera(camera, true)
                 cameraStream = camera
                 streamCamera.srcObject = camera
                 switchForms()
@@ -131,7 +135,7 @@
         let html = `<div class="col" id="memberCard-${member.user_id}">
             <div class="card mb-2" style="width: 18rem;">
                 <img style="width: 18rem" src="${member.avatar_url}" alt="${member.name}">
-                <video id="videoStream-${member.user_id}" autoplay></video>
+                <video id="videoStream-${member.user_id}" autoplay muted></video>
                 <div class="card-body">
                     <h5 class="card-title">${member.name}</h5>
                 </div>
@@ -156,8 +160,14 @@
         })
         appendCmdHandler('offer', data => {
             if (!rtcMembersPeerCons.hasOwnProperty(data.member.user_id)) {
-                appendMemberCard(data.member)
-                let domVideo = document.querySelector(`#videoStream-${data.member.user_id}`)
+                let domVideo
+                if (data.member.role === 1) {
+                    domVideo = document.querySelector(`#teacherStream`)
+                    console.warn('teacher', domVideo)
+                } else {
+                    appendMemberCard(data.member)
+                    domVideo = document.querySelector(`#videoStream-${data.member.user_id}`)
+                }
                 rtcMembersPeerCons[data.member.user_id] = new rtcCon(data.member, domVideo, cameraStream)
             }
             rtcMembersPeerCons[data.member.user_id].acceptOffer(data.params.offer)
@@ -169,6 +179,23 @@
         })
         appendCmdHandler('candidate', data => {
             rtcMembersPeerCons[data.member.user_id].addCandidate(data.params)
+        })
+        appendCmdHandler('start_stream', data => {
+            wsSend({cmd:'join'})
+        })
+        appendCmdHandler('leave', data => {
+            rtcMembersPeerCons[data.member.user_id].close()
+            delete rtcMembersPeerCons[data.member.user_id]
+            if(document.querySelector(`#memberCard-${data.member.user_id}`)) {
+                document.querySelector(`#memberCard-${data.member.user_id}`).remove()
+            }
+        })
+        appendCmdHandler('mic-muted', data => {
+            if(document.querySelector(`#videoStream-${data.member.user_id}`)) {
+                document.querySelector(`#videoStream-${data.member.user_id}`).muted = data.params.state
+            } else {
+                mutedCamera(cameraStream, data.params.state)
+            }
         })
     }
 </script>
