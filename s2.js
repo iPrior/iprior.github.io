@@ -125,8 +125,8 @@ class rtcCon {
         console.log('ADD REC 1', remoteStream)
         this.recSenders[recId] = recorder.outRtc.addTrack(remoteStream.getAudioTracks()[0], remoteStream)
 
-        console.log('ADD REC 2', this.recSenders[recId])
-        console.log('ADD REC 3', recorder.outRtc.addTransceiver(remoteStream.getAudioTracks()[0]))
+        // console.log('ADD REC 2', this.recSenders[recId])
+        // console.log('ADD REC 3', recorder.outRtc.addTransceiver(remoteStream.getAudioTracks()[0]))
     }
 
     removeAudioTrackToRecorder(recorder) {
@@ -435,5 +435,3 @@ function rtcAddAudioTrackToRecorders(srcUserId) {
 function rtcLogEvent(event) {
     log.info('EVENT', event.type, event.target)
 }
-
-/**/
