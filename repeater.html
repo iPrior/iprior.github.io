@@ -262,6 +262,7 @@
                         break
                     case "start_stream":
                         navigator.mediaDevices.getUserMedia({video:true, audio:true}).then((stream) => {
+                            document.getElementById("video-" + iam.user_id).muted = true
                             document.getElementById("video-" + iam.user_id).srcObject = stream
                             cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), () => {}, stream)
                             cons[memberId].createOffer().then((offer) => {
