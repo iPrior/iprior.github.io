@@ -208,6 +208,26 @@
         }
     }
 
+    function createCard(member) {
+        let card = document.createElement('div')
+        card.classList.add('card')
+        card.id = `card-${member.user_id}`
+        card.style = 'width: 18rem;'
+
+        let video = document.createElement('video')
+        video.classList.add('card-img-top')
+        video.autoplay = true
+        video.muted = false
+        video.id = `video-${member.user_id}`
+        card.appendChild(video)
+
+        let body = document.createElement('div')
+        body.classList.add('card-body')
+        body.innerHTML = `<h5 class="card-title">${member.name}</h5>
+    <p class="card-text">${member.user_id}</p>`
+        card.appendChild(body)
+        return card
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
 
@@ -270,21 +290,31 @@
                         if (!cons.hasOwnProperty(memberId)) {
                             cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), (e) => {
                                 console.warn("incoming track 111", e.streams[0], e.streams[0].getTracks())
-                                if (document.getElementById(memberId)) {
-                                    document.getElementById(memberId).srcObject = e.streams[0]
-                                    return
+                                let video = document.getElementById('video-'+memberId)
+                                if (!video) {
+                                    let card = createCard(data.member)
+                                    document.getElementById("remoteVideoContainer").appendChild(card)
+                                    video = document.getElementById('video-'+memberId)
                                 }
-                                let templ = document.createElement("div")
-                                templ.classList.add("col")
-                                let video = document.createElement("video")
-                                video.id=memberId
-                                video.width = 200
-                                video.height = 200
-                                video.autoplay = true
-                                video.muted = false
                                 video.srcObject = e.streams[0]
-                                templ.appendChild(video)
-                                document.getElementById("remoteVideoContainer").appendChild(templ)
+
+                                // let templ = document.createElement("div")
+                                // templ.classList.add("col")
+                                // let video = document.createElement("video")
+                                // video.id=memberId
+                                // video.width = 200
+                                // video.height = 200
+                                // video.autoplay = true
+                                // video.muted = false
+                                // video.srcObject = e.streams[0]
+                                // templ.appendChild(video)
+                                // let name = document.createElement('div')
+                                // name.innerText = data.member.name
+                                // templ.appendChild(name)
+                                // let uid = document.createElement('div')
+                                // uid.innerText = memberId
+                                // templ.appendChild(uid)
+                                // document.getElementById("remoteVideoContainer").appendChild(templ)
                                 // document.getElementById("remoteVideoSrc").srcObject = e.streams[0]
                             })
                         }
@@ -294,21 +324,31 @@
                         if (!cons.hasOwnProperty(memberId)) {
                             cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), (e) => {
                                 console.warn("incoming track 222", e.streams[0], e.streams[0].getTracks())
-                                if (document.getElementById(memberId)) {
-                                    document.getElementById(memberId).srcObject = e.streams[0]
-                                    return
+                                let video = document.getElementById('video-'+memberId)
+                                if (!video) {
+                                    let card = createCard(data.member)
+                                    document.getElementById("remoteVideoContainer").appendChild(card)
+                                    video = document.getElementById('video-'+memberId)
                                 }
-                                let templ = document.createElement("div")
-                                templ.classList.add("col")
-                                let video = document.createElement("video")
-                                video.id=memberId
-                                video.width = 200
-                                video.height = 200
-                                video.autoplay = true
-                                video.muted = false
                                 video.srcObject = e.streams[0]
-                                templ.appendChild(video)
-                                document.getElementById("remoteVideoContainer").appendChild(templ)
+
+                                // let templ = document.createElement("div")
+                                // templ.classList.add("col")
+                                // let video = document.createElement("video")
+                                // video.id=memberId
+                                // video.width = 200
+                                // video.height = 200
+                                // video.autoplay = true
+                                // video.muted = false
+                                // video.srcObject = e.streams[0]
+                                // templ.appendChild(video)
+                                // let name = document.createElement('div')
+                                // name.innerText = data.member.name
+                                // templ.appendChild(name)
+                                // let uid = document.createElement('div')
+                                // uid.innerText = memberId
+                                // templ.appendChild(uid)
+                                // document.getElementById("remoteVideoContainer").appendChild(templ)
                                 // document.getElementById("remoteVideoSrc").srcObject = e.streams[0]
                             })
                         }
@@ -324,11 +364,28 @@
                                                 to: memberId,
                                             }
                                         })
+
+                                        // setInterval(() => {
+                                        //     ws.send({
+                                        //         cmd: "mic-muted",
+                                        //         params: {
+                                        //             to: memberId,
+                                        //             state: false
+                                        //         }
+                                        //     })
+                                        // }, 5000)
                                     }).catch((console.error))
                                 }).catch(console.error)
                             }).catch(console.error)
 
                         }).catch(console.error)
+                        break
+                    case "leave":
+                        let card = document.getElementById('card-'+memberId)
+                        if (card) {
+                            card.remove()
+                        }
+                        break
                 }
             }
             ws.onSignalingSuccess = () => {
