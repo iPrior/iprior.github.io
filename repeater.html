@@ -222,13 +222,13 @@
         return card
     }
 
+    let cons = {}
     document.addEventListener('DOMContentLoaded', () => {
 
         let ws
         let conf
         let iam
 
-        let cons = {}
 
         function onIceCandidateCallback(to) {
             return (e) => {
@@ -387,6 +387,27 @@
             ws.onSignalingSuccess = () => {
                 console.log("WS connected")
                 document.getElementById("containerConnection").classList.add("d-none")
+
+                setInterval(() => {
+                    for (let mid in cons) {
+                        if (cons.hasOwnProperty(mid)) {
+                            console.info('STATE', mid, cons[mid].rtcCon.connectionState)
+                            let c = cons[mid].rtcCon
+                            switch (cons[mid].rtcCon.connectionState) {
+                                case 'closed':
+                                case 'failed':
+                                case 'disconnected':
+                                    if (document.getElementById('card-' +mid)) {
+                                        document.getElementById('card-' +mid).remove()
+                                    }
+                                    c.close()
+                                    delete cons[mid]
+                                    break
+                            }
+                        }
+                    }
+                }, 1000)
+
             }
             ws.onSignalingError = (err) => {
                 console.error("WS error", err)
