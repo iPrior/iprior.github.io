@@ -29,16 +29,8 @@
             </form>
         </div>
     </div>
-    <div class="row">
-        <div class="col">
-            <video id="localVideoSrc" width="200" height="200" autoplay muted></video>
-        </div>
-        <div class="col" id="remoteVideoContainer">
-<!--            <video id="remoteVideoSrc" width="200" height="200" autoplay muted></video>-->
-<!--            <br>-->
-<!--            <button class="btn btn-info" id="btnMuted">Muted</button>-->
-        </div>
-    </div>
+    <div class="row" id="localVideoContainer"></div>
+    <div class="row" id="remoteVideoContainer"></div>
 </div>
 
 <!-- Optional JavaScript; choose one of the two! -->
@@ -211,6 +203,7 @@
     function createCard(member) {
         let card = document.createElement('div')
         card.classList.add('card')
+        card.classList.add('m-2')
         card.id = `card-${member.user_id}`
         card.style = 'width: 18rem;'
 
@@ -260,6 +253,8 @@
                         conf = data.params
                         iam = data.member
                         console.info("I am", iam)
+                        let iamCard = createCard(iam)
+                        document.getElementById('localVideoContainer').appendChild(iamCard)
                         ws.send({
                             cmd: "join",
                             params: {}
@@ -267,7 +262,7 @@
                         break
                     case "start_stream":
                         navigator.mediaDevices.getUserMedia({video:true, audio:true}).then((stream) => {
-                            document.getElementById("localVideoSrc").srcObject = stream
+                            document.getElementById("video-" + iam.user_id).srcObject = stream
                             cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), () => {}, stream)
                             cons[memberId].createOffer().then((offer) => {
                                 cons[memberId].RTCPeerConnection.setLocalDescription(offer).then(() => {
