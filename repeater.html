@@ -108,12 +108,16 @@
             this.rtcCon = new RTCPeerConnection(conf)
             this.rtcCon.onconnectionstatechange = this.logEvent()
             this.rtcCon.ondatachannel = this.logEvent()
-            this.rtcCon.onicecandidateerror = this.logEvent()
             this.rtcCon.oniceconnectionstatechange = this.logEvent()
             this.rtcCon.onicegatheringstatechange = this.logEvent()
             this.rtcCon.onsignalingstatechange = this.logEvent()
 
             let that = this
+            this.rtcCon.onicecandidateerror = (e) => {
+                let log = that.logEvent()
+                log(e)
+                console.error('onICECandidateError', JSON.stringify(e), e)
+            }
             this.rtcCon.onnegotiationneeded = (e) => {
                 let log = that.logEvent()
                 log(e)
