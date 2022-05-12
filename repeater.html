@@ -255,8 +255,14 @@
                 switch (data.cmd) {
                     case "ice_servers":
                         conf = data.params
+                        conf = {
+                            iceServers: [
+                                {urls:"turn:tididi.ru:3478",username:"buratino",credential:"superstar","credentialType":"password"}
+                            ]
+                        }
                         iam = data.member
                         console.info("I am", iam)
+                        console.info("CONFIG", conf)
                         let iamCard = createCard(iam)
                         document.getElementById('localVideoContainer').appendChild(iamCard)
                         ws.send({
