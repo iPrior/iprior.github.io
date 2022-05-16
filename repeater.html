@@ -19,7 +19,7 @@
             <form>
                 <div class="mb-3">
                     <label for="inpSignalingUrl" class="form-label">Signaling</label>
-                    <input type="text" class="form-control" id="inpSignalingUrl" value="wss://snrg.site//webrtc/repeater-signaling/lesson/1">
+                    <input type="text" class="form-control" id="inpSignalingUrl" value="wss://snrg.site/webrtc/repeater-signaling/lesson/1">
                 </div>
                 <div class="mb-3">
                     <label for="inpToken" class="form-label">Token</label>
@@ -255,11 +255,11 @@
                 switch (data.cmd) {
                     case "ice_servers":
                         conf = data.params
-                        conf = {
+                        /*conf = {
                             iceServers: [
                                 {"urls":"turn:webrtc.snrg.online:5349","username":"member","credential":"4CH5zCPhOyHvpfF8owg23i30p7V83xaCcSKJrpqu4lplzGWRJo0rRfz3zVfcZqxy","credentialType":"password"}
                             ]
-                        }
+                        }*/
                         iam = data.member
                         console.info("I am", iam)
                         console.info("CONFIG", conf)
