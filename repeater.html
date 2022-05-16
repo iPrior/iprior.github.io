@@ -255,13 +255,6 @@
                 switch (data.cmd) {
                     case "ice_servers":
                         conf = data.params
-                        conf.iceServers.push({"urls":"stun:stun4.l.google.com:19302"})
-                        conf.iceServers.push({"urls":"stun:stun3.l.google.com:19302"})
-                        /*conf = {
-                            iceServers: [
-                                {"urls":"turn:webrtc.snrg.online:5349","username":"member","credential":"4CH5zCPhOyHvpfF8owg23i30p7V83xaCcSKJrpqu4lplzGWRJo0rRfz3zVfcZqxy","credentialType":"password"}
-                            ]
-                        }*/
                         iam = data.member
                         console.info("I am", iam)
                         console.info("CONFIG", conf)
@@ -289,7 +282,25 @@
                                     })
                                 }).catch(console.error)
                             }).catch(console.error)
-                        }).catch(console.error)
+                        }).catch((e) => {
+                            navigator.mediaDevices.getUserMedia({video:false, audio:true}).then((stream) => {
+                                document.getElementById("video-" + iam.user_id).muted = true
+                                document.getElementById("video-" + iam.user_id).srcObject = stream
+                                cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), () => {}, stream)
+                                cons[memberId].createOffer().then((offer) => {
+                                    cons[memberId].RTCPeerConnection.setLocalDescription(offer).then(() => {
+                                        console.info("set offer")
+                                        ws.send({
+                                            cmd: "offer",
+                                            params: {
+                                                offer: offer,
+                                                to: memberId,
+                                            }
+                                        })
+                                    }).catch(console.error)
+                                }).catch(console.error)
+                            }).catch(console.error)
+                        })
                         break
                     case "answer":
                         cons[memberId].RTCPeerConnection.setRemoteDescription(data.params.answer).catch(console.error)
