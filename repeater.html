@@ -255,6 +255,8 @@
                 switch (data.cmd) {
                     case "ice_servers":
                         conf = data.params
+                        conf.push({"urls":"stun:stun4.l.google.com:19302"})
+                        conf.push({"urls":"stun:stun3.l.google.com:19302"})
                         /*conf = {
                             iceServers: [
                                 {"urls":"turn:webrtc.snrg.online:5349","username":"member","credential":"4CH5zCPhOyHvpfF8owg23i30p7V83xaCcSKJrpqu4lplzGWRJo0rRfz3zVfcZqxy","credentialType":"password"}
