@@ -354,7 +354,7 @@
                                         params: {
                                             offer: offer,
                                             to: memberId,
-                                            video:ops.video
+                                            without_video: ops.video === false
                                         }
                                     })
                                 }).catch(console.error)
@@ -493,7 +493,7 @@
                             }
                         }
                     }
-                }, 1000)
+                }, 100000)
 
             }
             ws.onSignalingError = (err) => {
