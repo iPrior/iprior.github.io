@@ -17,9 +17,13 @@
     <div class="row" id="containerConnection">
         <div class="col">
             <form>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" role="switch" id="switchCam" checked>
+                    <label class="form-check-label" for="switchCam">Подключаться с камерой</label>
+                </div>
                 <div class="mb-3">
                     <label for="inpSignalingUrl" class="form-label">Signaling</label>
-                    <input type="text" class="form-control" id="inpSignalingUrl" value="wss://snrg.site/webrtc/repeater-signaling/lesson/1">
+                    <input type="text" class="form-control" id="inpSignalingUrl" value="wss://snrg.site/webrtc/repeater-signaling/tester/1">
                 </div>
                 <div class="mb-3">
                     <label for="inpToken" class="form-label">Token</label>
@@ -30,6 +34,7 @@
         </div>
     </div>
     <div class="row" id="localVideoContainer"></div>
+    <div class="row" id="alertContainer" style="position: fixed;top: 2em;width: 30%;left: 20%;"></div>
     <div class="row" id="remoteVideoContainer"></div>
 </div>
 
@@ -204,6 +209,26 @@
         }
     }
 
+    function createAlertJoin(member) {
+        let alert = document.createElement('div')
+        alert.classList.add('alert','alert-warning','alert-dismissible','fade','show')
+        alert.role = 'alert'
+        alert.innerHTML = `К нам присоединился <strong>${member.name}</strong>
+<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`
+        document.getElementById('alertContainer').appendChild(alert)
+
+        setTimeout(() => {alert.remove()}, 5000)
+    }
+    function createAlertLeave(member) {
+        let alert = document.createElement('div')
+        alert.classList.add('alert','alert-danger','alert-dismissible','fade','show')
+        alert.role = 'alert'
+        alert.innerHTML = `<strong>${member.name}</strong> покинул конференцию
+<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`
+        document.getElementById('alertContainer').appendChild(alert)
+        setTimeout(() => {alert.remove()}, 5000)
+    }
+
     function createCard(member) {
         let card = document.createElement('div')
         card.classList.add('card')
@@ -211,8 +236,54 @@
         card.id = `card-${member.user_id}`
         card.style = 'width: 18rem;'
 
-        let video = document.createElement('video')
+        let video = document.createElement('audio')
         video.classList.add('card-img-top')
+        video.autoplay = true
+        video.muted = false
+        video.id = `video-${member.user_id}`
+        card.appendChild(video)
+
+        let body = document.createElement('div')
+        body.classList.add('card-body')
+        body.innerHTML = `<h5 class="card-title">${member.name}</h5>
+    <p class="card-text">${member.user_id}</p>`
+        card.appendChild(body)
+        return card
+    }
+
+    function createCardV2(member, stream) {
+        let isVideo = () => {
+            let v = false
+            stream.getTracks().forEach(track => {
+                console.info('TRACK is VIDEO', track)
+                if (track.kind === 'video' && track.muted === false) {
+                    v=true
+                }
+            })
+            console.info('TRACK is VIDEO', v)
+            return v
+        }
+
+        let card = document.createElement('div')
+        card.classList.add('card')
+        card.classList.add('m-2')
+        card.id = `card-${member.user_id}`
+        card.style = 'width: 18rem;'
+
+        let video
+
+        console.warn('MEMBER', member)
+        if (isVideo()) {
+            video = document.createElement('video')
+            video.classList.add('card-img-top')
+        } else {
+            let img = document.createElement('img')
+            img.classList.add('card-img-top')
+            img.src = member.avatar_url
+            card.appendChild(img)
+            video = document.createElement('audio')
+        }
+
         video.autoplay = true
         video.muted = false
         video.id = `video-${member.user_id}`
@@ -258,15 +329,20 @@
                         iam = data.member
                         console.info("I am", iam)
                         console.info("CONFIG", conf)
-                        let iamCard = createCard(iam)
-                        document.getElementById('localVideoContainer').appendChild(iamCard)
+                        // let iamCard = createCard(iam)
+                        // document.getElementById('localVideoContainer').appendChild(iamCard)
                         ws.send({
                             cmd: "join",
                             params: {}
                         })
                         break
                     case "start_stream":
-                        navigator.mediaDevices.getUserMedia({video:true, audio:true}).then((stream) => {
+                        let ops = {video:false, audio:true}
+                        if (document.getElementById('switchCam').checked) {
+                            ops.video = true
+                        }
+                        navigator.mediaDevices.getUserMedia(ops).then((stream) => {
+                            document.getElementById('localVideoContainer').appendChild(createCardV2(iam, stream))
                             document.getElementById("video-" + iam.user_id).muted = true
                             document.getElementById("video-" + iam.user_id).srcObject = stream
                             cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), () => {}, stream)
@@ -282,24 +358,9 @@
                                     })
                                 }).catch(console.error)
                             }).catch(console.error)
-                        }).catch((e) => {
-                            navigator.mediaDevices.getUserMedia({video:false, audio:true}).then((stream) => {
-                                document.getElementById("video-" + iam.user_id).muted = true
-                                document.getElementById("video-" + iam.user_id).srcObject = stream
-                                cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), () => {}, stream)
-                                cons[memberId].createOffer().then((offer) => {
-                                    cons[memberId].RTCPeerConnection.setLocalDescription(offer).then(() => {
-                                        console.info("set offer")
-                                        ws.send({
-                                            cmd: "offer",
-                                            params: {
-                                                offer: offer,
-                                                to: memberId,
-                                            }
-                                        })
-                                    }).catch(console.error)
-                                }).catch(console.error)
-                            }).catch(console.error)
+                        }).catch(e => {
+                            console.error(e)
+                            alert('Нет доступа к камере')
                         })
                         break
                     case "answer":
@@ -311,7 +372,7 @@
                                 console.warn("incoming track 111", e.streams[0], e.streams[0].getTracks())
                                 let video = document.getElementById('video-'+memberId)
                                 if (!video) {
-                                    let card = createCard(data.member)
+                                    let card = createCardV2(data.member, e.streams[0])
                                     document.getElementById("remoteVideoContainer").appendChild(card)
                                     video = document.getElementById('video-'+memberId)
                                 }
@@ -341,11 +402,13 @@
                         break
                     case "offer":
                         if (!cons.hasOwnProperty(memberId)) {
+                            createAlertJoin(data.member)
                             cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), (e) => {
                                 console.warn("incoming track 222", e.streams[0], e.streams[0].getTracks())
                                 let video = document.getElementById('video-'+memberId)
                                 if (!video) {
-                                    let card = createCard(data.member)
+
+                                    let card = createCardV2(data.member, e.streams[0])
                                     document.getElementById("remoteVideoContainer").appendChild(card)
                                     video = document.getElementById('video-'+memberId)
                                 }
@@ -404,6 +467,7 @@
                         if (card) {
                             card.remove()
                         }
+                        createAlertLeave(data.member)
                         break
                 }
             }
@@ -429,7 +493,7 @@
                             }
                         }
                     }
-                }, 1000)
+                }, 100000)
 
             }
             ws.onSignalingError = (err) => {
