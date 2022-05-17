@@ -252,11 +252,11 @@
     }
 
     function createCardV2(member, stream) {
-        let isVideo = () => {
+        let isVideo = (stream) => {
             let v = false
             stream.getTracks().forEach(track => {
-                console.info('TRACK is VIDEO', track)
-                if (track.kind === 'video' && track.muted === false) {
+                console.info('TRACK is VIDEO', track.kind,track.muted, track)
+                if (track.kind === 'video') {
                     v=true
                 }
             })
@@ -273,7 +273,7 @@
         let video
 
         console.warn('MEMBER', member)
-        if (isVideo()) {
+        if (isVideo(stream)) {
             video = document.createElement('video')
             video.classList.add('card-img-top')
         } else {
@@ -354,6 +354,7 @@
                                         params: {
                                             offer: offer,
                                             to: memberId,
+                                            video:ops.video
                                         }
                                     })
                                 }).catch(console.error)
@@ -370,12 +371,12 @@
                         if (!cons.hasOwnProperty(memberId)) {
                             cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), (e) => {
                                 console.warn("incoming track 111", e.streams[0], e.streams[0].getTracks())
-                                let video = document.getElementById('video-'+memberId)
-                                if (!video) {
-                                    let card = createCardV2(data.member, e.streams[0])
-                                    document.getElementById("remoteVideoContainer").appendChild(card)
-                                    video = document.getElementById('video-'+memberId)
+                                if (document.getElementById('card-'+memberId)) {
+                                    document.getElementById('card-'+memberId).remove()
                                 }
+                                let card = createCardV2(data.member, e.streams[0])
+                                document.getElementById("remoteVideoContainer").appendChild(card)
+                                let video = document.getElementById('video-'+memberId)
                                 video.srcObject = e.streams[0]
 
                                 // let templ = document.createElement("div")
@@ -405,13 +406,12 @@
                             createAlertJoin(data.member)
                             cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), (e) => {
                                 console.warn("incoming track 222", e.streams[0], e.streams[0].getTracks())
-                                let video = document.getElementById('video-'+memberId)
-                                if (!video) {
-
-                                    let card = createCardV2(data.member, e.streams[0])
-                                    document.getElementById("remoteVideoContainer").appendChild(card)
-                                    video = document.getElementById('video-'+memberId)
+                                if (document.getElementById('card-'+memberId)) {
+                                    document.getElementById('card-'+memberId).remove()
                                 }
+                                let card = createCardV2(data.member, e.streams[0])
+                                document.getElementById("remoteVideoContainer").appendChild(card)
+                                let video = document.getElementById('video-'+memberId)
                                 video.srcObject = e.streams[0]
 
                                 // let templ = document.createElement("div")
@@ -493,7 +493,7 @@
                             }
                         }
                     }
-                }, 100000)
+                }, 1000)
 
             }
             ws.onSignalingError = (err) => {
