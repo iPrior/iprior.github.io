@@ -228,6 +228,24 @@
         document.getElementById('alertContainer').appendChild(alert)
         setTimeout(() => {alert.remove()}, 5000)
     }
+    function createAlertRecorderStart(member) {
+        let alert = document.createElement('div')
+        alert.classList.add('alert','alert-info','alert-dismissible','fade','show')
+        alert.role = 'alert'
+        alert.innerHTML = `Началась запись видео потока участника <strong>${member.name}</strong>
+<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`
+        document.getElementById('alertContainer').appendChild(alert)
+        setTimeout(() => {alert.remove()}, 5000)
+    }
+    function createAlertRecorderEnd(member) {
+        let alert = document.createElement('div')
+        alert.classList.add('alert','alert-success','alert-dismissible','fade','show')
+        alert.role = 'alert'
+        alert.innerHTML = `Завершена запись видео потока участника <strong>${member.name}</strong>
+<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`
+        document.getElementById('alertContainer').appendChild(alert)
+        setTimeout(() => {alert.remove()}, 5000)
+    }
 
     function createCard(member) {
         let card = document.createElement('div')
@@ -468,6 +486,12 @@
                             card.remove()
                         }
                         createAlertLeave(data.member)
+                        break
+                    case "recorder_start":
+                        createAlertRecorderStart(iam)
+                        break
+                    case "recorder_end":
+                        createAlertRecorderEnd(iam)
                         break
                 }
             }
