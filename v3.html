@@ -125,7 +125,7 @@
         })
     }
 
-    let ws = new WebSocket("ws://localhost:8118")
+    let ws = new WebSocket("wss://tididi.ru/webrtc")
     ws.onopen = () => {
         console.info("connecting to signaling server")
         signaling({cmd: "join", payload:null})
