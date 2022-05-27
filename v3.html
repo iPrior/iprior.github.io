@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WebRTC v3</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.2/font/bootstrap-icons.css">
+    <script type="text/javascript" src="webrtc.js"></script>
+    <script type="text/javascript" src="mutex.js"></script>
+</head>
+<body>
+
+
+<div class="container" id="cntControl">
+    <div class="row">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="switchCamera">
+            <label class="form-check-label" for="switchCamera">Камера (off/on)</label>
+        </div>
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="switchMic">
+            <label class="form-check-label" for="switchMic">Микрофон (off/on)</label>
+        </div>
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="switchScreen">
+            <label class="form-check-label" for="switchScreen">Экран (off/on)</label>
+        </div>
+    </div>
+</div>
+<div class="container" id="cntVideoLocal">
+    <h3>Local</h3>
+    <div class="row">
+        <div class="col col-sm-12 col-md-3">
+            <video id="cameraLocal" autoplay muted style="width: 100%"></video>
+        </div>
+        <div class="col">
+            <video id="screenLocal" autoplay muted style="width: 100%"></video>
+        </div>
+    </div>
+</div>
+<div class="container" id="cntVideoRemote">
+    <h3>Remote</h3>
+    <div class="row">
+
+    </div>
+</div>
+
+<script type="text/javascript">
+    let cntVideoRemote = document.getElementById('cntVideoRemote')
+
+    let cntControl = null
+    let switchCamera = null
+    let switchMic = null
+    let switchScreen = null
+
+    let cntVideoLocal = null
+    let cameraLocal = null
+    let screenLocal = null
+
+    let rtc = new Webrtc(onTrackCallback, onIceCandidateCallback, onNegotiationNeededCallback)
+    rtc.initRTC({iceServers: [
+            {urls: 'stun:webrtc.snrg.online:5349', credentialType: 'password', username: 'member', credential: '4CH5zCPhOyHvpfF8owg23i30p7V83xaCcSKJrpqu4lplzGWRJo0rRfz3zVfcZqxy'},
+            {urls: 'turn:webrtc.snrg.online:5349', credentialType: 'password', username: 'member', credential: '4CH5zCPhOyHvpfF8owg23i30p7V83xaCcSKJrpqu4lplzGWRJo0rRfz3zVfcZqxy'}
+        ]})
+
+    const mutex = new Mutex()
+    let unlock = []
+
+    const delay = (ms, value) => new Promise(resolve => setTimeout(resolve, ms, value));
+    let locked
+
+    function onNegotiationNeededCallback() {
+        (async () => {
+            unlock.push(await mutex.lock(locked))
+            signaling({
+                cmd: "negotiationneeded",
+                payload: null
+            })
+            await delay(1000)
+        })()
+    }
+
+    function onTrackCallback(e) {
+        let stream_id = e.streams[0].id
+
+        const regex = /^stream_.*/gm;
+        if (regex.exec(stream_id) === null) {
+            return
+        }
+        console.info('onTrackCallback', e.streams[0], e.streams[0].getTracks())
+
+        let v = document.getElementById(stream_id)
+        if (!v) {
+            let cnt = cntVideoRemote.getElementsByClassName("row")[0]
+            let col = document.createElement('div')
+            col.id = 'cnt_' + stream_id
+            col.classList.add('col', 'col-sm-12', 'col-md-3')
+
+            let s = document.createElement('p')
+            s.innerText = e.streams[0].id
+            col.appendChild(s)
+            v = document.createElement('video')
+            v.id = stream_id
+            v.autoplay = true
+            v.style = 'width: 100%'
+            col.appendChild(v)
+            cnt.appendChild(col)
+        }
+        v.srcObject = e.streams[0]
+    }
+
+    function onIceCandidateCallback(candidate) {
+        console.info('onIceCandidateCallback', candidate)
+        if (!candidate) {
+            return
+        }
+
+        signaling({
+            cmd: "candidate",
+            payload: {
+                candidate
+            }
+        })
+    }
+
+    let ws = new WebSocket("ws://localhost:8118")
+    ws.onopen = () => {
+        console.info("connecting to signaling server")
+        signaling({cmd: "join", payload:null})
+    }
+    ws.onerror = (e) => {
+        console.error(e)
+    }
+    ws.onclose = () => {
+        rtc.close()
+    }
+    ws.onmessage = (data) => {
+        console.debug("-> inc", JSON.parse(data.data))
+        console.debug("-> inc", data.data)
+
+        let command = JSON.parse(data.data)
+        if (!command.hasOwnProperty("cmd")) {
+            console.warn("unknown command", command)
+            return
+        }
+        let payload = null
+        if (command.hasOwnProperty("payload")) {
+            payload = command.payload
+        }
+        console.debug("-> inc payload", payload)
+
+        switch (command.cmd) {
+            case "offer":
+                (async () => {
+                    let offer = payload.offer
+                    rtc.setOffer(offer).then(() => {
+                        rtc.createAnswer().then(answer => {
+                            signaling({
+                                cmd: "answer",
+                                payload: {
+                                    answer
+                                }
+                            })
+                            const un = unlock.shift()
+                            if (un) {
+                                un()
+                            }
+                        }).catch(console.error)
+                    }).catch(console.error)
+                })()
+                break
+            case "candidate":
+                rtc.addIceCandidate(payload.candidate)
+                break
+        }
+    }
+
+    function signaling(data) {
+        console.debug("<- out", data)
+        console.log("<- out", JSON.stringify(data))
+        ws.send(JSON.stringify(data))
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // LOCAL VIDEO
+        cntVideoLocal = document.getElementById('cntVideoLocal')
+        cameraLocal = document.getElementById('cameraLocal')
+        screenLocal = document.getElementById('screenLocal')
+
+
+        // CONTROL
+        cntControl = document.getElementById('cntControl')
+        switchCamera = document.getElementById('switchCamera')
+        switchMic = document.getElementById('switchMic')
+        switchScreen = document.getElementById('switchScreen')
+
+        switchCamera.addEventListener('change', (e) => {
+            console.debug('switchCamera', e.target.checked)
+            if (e.target.checked) {
+
+                navigator.mediaDevices.getUserMedia(
+                    {
+                        audio: false,
+                        video: {
+                            width: { min: 640, ideal: 1920, max: 1920 },
+                            height: { min: 400, ideal: 1080 },
+                        }
+                    }
+                ).then(stream =>  {
+                    // todo: отправить на сервер данные по треку (что это камера и его ID такой то)
+                    console.info("tracks", "camera", stream, stream.getVideoTracks())
+                    locked = 'camera'
+                    signaling({
+                        cmd: "input_source",
+                        payload: {
+                            type: "camera"
+                        }
+                    })
+                    cameraLocal.srcObject = stream
+                    rtc.addCamera(stream)
+                }).catch(console.error)
+            } else {
+                cameraLocal.srcObject = null
+                rtc.removeCamera()
+            }
+        })
+        switchMic.addEventListener('change', (e) => {
+            console.debug('switchMic', e.target.checked)
+            if (e.target.checked) {
+                navigator.mediaDevices.getUserMedia(
+                    {
+                        video: false,
+                        audio: {
+                            echoCancellation: true,
+                            autoGainControl: true,
+                            noiseSuppression: true,
+                        }
+                    }
+                ).then(stream =>  {
+                    // todo: отправить на сервер данные по треку (что это микрофон и его ID такой то)
+                    locked = 'mic'
+                    signaling({
+                        cmd: "input_source",
+                        payload: {
+                            type: "mic"
+                        }
+                    })
+                    rtc.addMic(stream)
+                }).catch(console.error)
+            } else {
+                rtc.removeMic()
+            }
+
+        })
+        switchScreen.addEventListener('change', (e) => {
+            console.debug('switchScreen', e.target.checked)
+            if (e.target.checked) {
+                navigator.mediaDevices.getDisplayMedia(
+                    {
+                        audio: false,
+                        video: true
+                    }
+                ).then(stream =>  {
+                    // todo: отправить на сервер данные по треку (что это экран и его ID такой то)
+                    locked = 'screen'
+                    signaling({
+                        cmd: "input_source",
+                        payload: {
+                            type: "screen"
+                        }
+                    })
+                    rtc.addScreen(stream)
+                    screenLocal.srcObject = stream
+                    console.info('screen', stream, stream.getVideoTracks()[0])
+                }).catch(console.error)
+            } else {
+                screenLocal.srcObject = null
+                rtc.removeScreen()
+            }
+        })
+    })
+
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-pprn3073KE6tl6bjs2QrFaJGz5/SUsLqktiwsUTF55Jfv3qYSDhgCecCxMW52nD2"
+        crossorigin="anonymous"></script>
+</body>
+</html>
