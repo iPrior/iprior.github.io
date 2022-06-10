@@ -33,6 +33,15 @@
             </form>
         </div>
     </div>
+<!--    <div class="row" id="">-->
+<!--        <button type="button" class="btn btn-danger" id="btnEndTranslation">End Translation</button>-->
+<!--    </div>-->
+    <div class="row d-none" id="containerControls">
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="switchScreen">
+            <label class="form-check-label" for="switchScreen">Включить экран</label>
+        </div>
+    </div>
     <div class="row" id="localVideoContainer"></div>
     <div class="row" id="alertContainer" style="position: fixed;top: 2em;width: 30%;left: 20%;"></div>
     <div class="row" id="remoteVideoContainer"></div>
@@ -116,6 +125,9 @@
             this.rtcCon.oniceconnectionstatechange = this.logEvent()
             this.rtcCon.onicegatheringstatechange = this.logEvent()
             this.rtcCon.onsignalingstatechange = this.logEvent()
+            this._onNegotiationCallBack = () => {
+                console.log('EMPTY NEGOTIATION NEEDED CALLBACK')
+            }
 
             let that = this
             this.rtcCon.onicecandidateerror = (e) => {
@@ -126,7 +138,7 @@
             this.rtcCon.onnegotiationneeded = (e) => {
                 let log = that.logEvent()
                 log(e)
-
+                that._onNegotiationCallBack(member.user_id)
                 // console.info("candidate buffer", this.candidateBuf)
                 // if (e.target.signalingState === "have-local-offer") {
                 //     let list = this.candidateBuf
@@ -164,6 +176,11 @@
                 // })
                 // this.rtcCon.addTransceiver('audio')
             }
+            this._onIceCandidateCallback = onIceCandidateCallback;
+        }
+
+        set onNegotiationNeededCallback(value) {
+            this._onNegotiationCallBack = value
         }
 
         get RTCPeerConnection() {
@@ -179,6 +196,16 @@
 
         createAnswer() {
             return this.rtcCon.createAnswer()
+        }
+
+        addStream(stream) {
+            this.rtcCon.addTrack(stream.getVideoTracks()[0], stream)
+            // this.rtcCon.addTransceiver(stream.getVideoTracks()[0], {
+            //     direction: 'sendonly',
+            //     streams: [stream]
+            // })
+            // this.rtcCon.addTransceiver('video')
+            // return this.rtcCon.addStream(stream)
         }
 
         addCandidate(candidate) {
@@ -285,7 +312,7 @@
         let card = document.createElement('div')
         card.classList.add('card')
         card.classList.add('m-2')
-        card.id = `card-${member.user_id}`
+        card.id = `${stream.id}`
         card.style = 'width: 18rem;'
 
         let video
@@ -304,13 +331,13 @@
 
         video.autoplay = true
         video.muted = false
-        video.id = `video-${member.user_id}`
+        video.id = `${stream.id}-${member.user_id}`
         card.appendChild(video)
 
         let body = document.createElement('div')
         body.classList.add('card-body')
         body.innerHTML = `<h5 class="card-title">${member.name}</h5>
-    <p class="card-text">${member.user_id}</p>`
+    <p class="card-text">${member.user_id}</p><p class="card-footer">${stream.id}</p>`
         card.appendChild(body)
         return card
     }
@@ -321,7 +348,34 @@
         let ws
         let conf
         let iam
+        let repeater
 
+
+        // document.getElementById('btnEndTranslation').addEventListener('click', () => {
+        //     ws.send({
+        //         cmd: "end-translation",
+        //         params: {}
+        //     })
+        // })
+
+        document.getElementById('switchScreen').addEventListener('change', () => {
+            if (document.getElementById('switchScreen').checked) {
+                navigator.mediaDevices.getDisplayMedia({audio:false, video:true}).then(stream => {
+                    console.info("SCREEN", cons[repeater.user_id], stream, stream.getTracks())
+                    cons[repeater.user_id].addStream(stream)
+                })
+                ws.send({
+                    cmd:"screen-start",
+                    params: {}
+                })
+            } else {
+                ws.send({
+                    cmd:"screen-end",
+                    params: {}
+                })
+            }
+
+        })
 
         function onIceCandidateCallback(to) {
             return (e) => {
@@ -333,6 +387,22 @@
                     }
                 })
             }
+        }
+
+        function onNegotiationNeeded(to) {
+            console.info("NEGOTIATION", to)
+            cons[to].RTCPeerConnection.createOffer().then(offer => {
+                cons[to].rtcCon.setLocalDescription(offer).then(()=>{
+                    ws.send({
+                        cmd: "offer",
+                        params: {
+                            to: to,
+                            offer: offer
+                        }
+                    })
+                }).catch(console.error)
+
+            }).catch(console.error)
         }
 
         document.getElementById('btnConnect').addEventListener('click', () => {
@@ -355,17 +425,18 @@
                         })
                         break
                     case "start_stream":
+                        repeater = data.member
                         let ops = {video:false, audio:true}
                         if (document.getElementById('switchCam').checked) {
                             ops.video = true
                         }
                         navigator.mediaDevices.getUserMedia(ops).then((stream) => {
                             document.getElementById('localVideoContainer').appendChild(createCardV2(iam, stream))
-                            document.getElementById("video-" + iam.user_id).muted = true
-                            document.getElementById("video-" + iam.user_id).srcObject = stream
-                            cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), () => {}, stream)
+                            document.getElementById(stream.id + "-" + iam.user_id).muted = true
+                            document.getElementById(stream.id + "-" + iam.user_id).srcObject = stream
+                            cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), () => {}, stream, ()=>{})
                             cons[memberId].createOffer().then((offer) => {
-                                cons[memberId].RTCPeerConnection.setLocalDescription(offer).then(() => {
+                                cons[memberId].rtcCon.setLocalDescription(offer).then(() => {
                                     console.info("set offer")
                                     ws.send({
                                         cmd: "offer",
@@ -383,18 +454,19 @@
                         })
                         break
                     case "answer":
-                        cons[memberId].RTCPeerConnection.setRemoteDescription(data.params.answer).catch(console.error)
+                        cons[memberId].rtcCon.setRemoteDescription(data.params.answer).catch(console.error)
+                        cons[memberId].onNegotiationNeededCallback = onNegotiationNeeded
                         break
                     case "candidate":
                         if (!cons.hasOwnProperty(memberId)) {
                             cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), (e) => {
                                 console.warn("incoming track 111", e.streams[0], e.streams[0].getTracks())
-                                if (document.getElementById('card-'+memberId)) {
-                                    document.getElementById('card-'+memberId).remove()
+                                if (document.getElementById(e.streams[0].id)) {
+                                    document.getElementById(e.streams[0].id).remove()
                                 }
                                 let card = createCardV2(data.member, e.streams[0])
                                 document.getElementById("remoteVideoContainer").appendChild(card)
-                                let video = document.getElementById('video-'+memberId)
+                                let video = document.getElementById(e.streams[0].id + '-'+memberId)
                                 video.srcObject = e.streams[0]
 
                                 // let templ = document.createElement("div")
@@ -423,14 +495,15 @@
                         if (!cons.hasOwnProperty(memberId)) {
                             createAlertJoin(data.member)
                             cons[memberId] = new rtcPC(data.member, conf, onIceCandidateCallback(memberId), (e) => {
-                                console.warn("incoming track 222", e.streams[0], e.streams[0].getTracks())
-                                if (document.getElementById('card-'+memberId)) {
-                                    document.getElementById('card-'+memberId).remove()
+                                console.warn("incoming track 222", e.streams[0].id, e.streams[0], e.streams[0].getTracks())
+                                if (document.getElementById(e.streams[0].id)) {
+                                    document.getElementById(e.streams[0].id).remove()
                                 }
                                 let card = createCardV2(data.member, e.streams[0])
                                 document.getElementById("remoteVideoContainer").appendChild(card)
-                                let video = document.getElementById('video-'+memberId)
+                                let video = document.getElementById(e.streams[0].id+'-'+memberId)
                                 video.srcObject = e.streams[0]
+
 
                                 // let templ = document.createElement("div")
                                 // templ.classList.add("col")
@@ -498,6 +571,7 @@
             ws.onSignalingSuccess = () => {
                 console.log("WS connected")
                 document.getElementById("containerConnection").classList.add("d-none")
+                document.getElementById("containerControls").classList.remove("d-none")
 
                 setInterval(() => {
                     for (let mid in cons) {
