@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Webinar</title>
+</head>
+<body>
+
+<div>
+    <ul>
+        <li>
+            <input type="checkbox" id="chkCam" value="1" autocomplete="false"><label for="chkCam">Камера</label>
+        </li>
+        <li>
+            <input type="checkbox" id="chkScr" value="1" autocomplete="false"><label for="chkScr">Экран</label>
+        </li>
+    </ul>
+        <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="wss://svc.neapro.site/gateway">
+<!--    <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="ws://localhost:8778">-->
+    <label for="token">Token:</label> <input type="text" id="token" value="student">
+    <div>
+        <button type="button" id="btnCon">Connect</button>
+    </div>
+</div>
+<hr>
+
+<div>
+    <h2>Исходящее</h2>
+    <table width="100%">
+        <tr>
+            <td style="padding: 5px; border: solid coral 1px; width: 45%;">
+                <b>Camera</b>
+                <video id="localCam" autoplay muted></video>
+            </td>
+            <td style="padding: 5px; border: solid coral 1px; width: 45%;">
+                <b>Screen</b>
+                <video id="localScr" autoplay></video>
+            </td>
+        </tr>
+    </table>
+</div>
+<hr>
+
+<div>
+    <h2>Входящее</h2>
+    <table width="100%" id="remotes">
+    </table>
+</div>
+
+<script type="text/javascript">
+    /* UI */
+    var scrOpt = {
+        video: {
+            mandatory: {
+                maxWidth: 1280,
+                maxHeight: 720,
+            },
+            optional: [
+                // { width: 1280 },
+                // { height: 720 },
+                // { frameRate: 30 },
+                {facingMode: "user"}
+            ]
+        },
+        audio: false
+    }
+
+    function createCard(member) {
+        if (document.getElementById('row_' + member.id)) {
+            return
+        }
+
+        let tr = document.createElement('tr')
+        tr.id = 'row_' + member.id
+
+        let td = document.createElement('td')
+        td.style = 'padding: 5px; border: solid coral 1px'
+        let cam = document.createElement('video')
+        cam.autoplay = true
+        cam.muted = false
+        cam.id = 'stream_' + member.id
+        td.append(cam)
+        tr.append(td)
+
+        document.getElementById('remotes').append(tr)
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById('btnCon').addEventListener('click', initWS)
+
+
+        document.getElementById('chkCam').addEventListener('change', e => {
+            if (e.target.checked) {
+                if (locCam == null) {
+                    navigator.mediaDevices.getUserMedia({
+                        video: {
+                            optional: [
+                                // { width: 1280 },
+                                // { height: 720 },
+                                // { frameRate: 30 },
+                                {facingMode: "user"}
+                            ]
+                        },
+                        audio: true
+                    }).then(stream => {
+                        locCam = stream
+                        document.getElementById('localCam').srcObject = locCam
+                        con.addStream(locCam)
+                    }).catch(console.error)
+                }
+            }
+        })
+        document.getElementById('chkScr').addEventListener('change', e => {
+            if (e.target.checked) {
+                if (locScr == null) {
+                    scrOpt.video.optional.push({width: scrOpt.video.mandatory.maxWidth})
+                    scrOpt.video.optional.push({height: scrOpt.video.mandatory.maxHeight})
+                    console.info("OPT", scrOpt)
+                    navigator.mediaDevices.getDisplayMedia(scrOpt).then(stream => {
+                        locScr = stream
+                        document.getElementById('localScr').srcObject = locScr
+                        replaceTrack(locScr)
+                    }).catch(console.error)
+                } else {
+                    replaceTrack(locScr)
+                }
+            } else {
+                replaceTrack(locCam)
+            }
+        })
+    })
+
+    /* WS */
+    var ws
+
+    function initWS() {
+        let url = document.getElementById("wsURL").value + "?token=" +
+            document.getElementById("token").value
+        console.debug("signaling URL", url)
+        ws = new WebSocket(url)
+
+        ws.onerror = console.error
+        ws.onopen = () => {
+            sendRequest("Join", null)
+        }
+        ws.onmessage = (msg) => {
+            let data = JSON.parse(msg.data)
+            console.info('<- inc [WS]', msg.data)
+            console.info('<- inc [WS]', data)
+            wsProc(data)
+        }
+    }
+
+    function sendRequest(method, params) {
+        if (params == null) {
+            params = {}
+        }
+
+        params.roomName = "mock"
+        params.roomId = "5555"
+
+        let data = {
+            jsonrpc: "2.0",
+            method: "webinar." + method,
+            params
+        }
+        let msg = JSON.stringify(data)
+        console.info('-> out [WS]', msg)
+        console.info('-> out [WS]', data)
+        ws.send(msg)
+    }
+
+    function wsProc(data) {
+        if (data == null) {
+            return
+        }
+        if (data.error) {
+            console.error(data.error.message)
+        }
+        switch (data.method) {
+            case "webinar.Ehlo":
+                iam = data.params.member
+                break
+            case "webinar.RtcConfig":
+                initRTC(data.params)
+                // initRTC({})
+                break
+            case "webinar.Offer":
+                con.setRemoteDescription(data.params.offer).then(() => {
+                    // let appendCamStream = true
+                    // con.getSenders().forEach((v,k) => {
+                    //     if (v.track!=null) {
+                    //         appendCamStream = false
+                    //     }
+                    // })
+                    // if (appendCamStream && locCam != null) {
+                    //     con.addStream(locCam)
+                    // }
+
+                    candidatePool.forEach(candidate => {
+                        con.addIceCandidate(candidate).catch(console.error)
+                    })
+                    candidatePool = []
+
+                    con.createAnswer({
+                        offerToReceiveAudio: true,
+                        offerToReceiveVideo: true
+                    }).then(answer => {
+                        con.setLocalDescription(answer).then(() => {
+                            sendRequest("Answer", {
+                                answer
+                            })
+                        }).catch(console.error)
+                    }).catch(console.error)
+                }).catch(console.error)
+                break
+            case "webinar.Candidate":
+                if (data.params.candidate == null) {
+                    return
+                }
+                if (!con.remoteDescription) {
+                    candidatePool.push(data.params.candidate)
+                    return
+                }
+                con.addIceCandidate(data.params.candidate).catch(console.error)
+                break
+            case "webinar.Leave":
+                if (data.params.member == null) {
+                    return
+                }
+                if (document.getElementById('row_' + data.params.member.id)) {
+                    let row = document.getElementById('row_' + data.params.member.id)
+                    row.parentNode.removeChild(row)
+                }
+                break
+        }
+    }
+
+    /* WebRTC */
+    var iam = null
+    var con = null
+    var locCam = null
+    var locScr = null
+    var candidatePool = []
+
+    function initRTC(conf) {
+        if (iam == null) {
+            console.error("текущий участник не определён (ehlo)")
+            return
+        }
+        con = new RTCPeerConnection(conf)
+        con.onicecandidate = candidate => {
+            if (candidate == null) {
+                return
+            }
+            sendRequest("Candidate", {
+                params: {candidate}
+            })
+        }
+        con.ontrack = e => {
+            let stream = e.streams[0]
+            console.warn("ON TRACK", stream.getTracks(), stream)
+            let parts = stream.id.split("_")
+            if (parts[0] !== 'stream') {
+                return
+            }
+            if (!document.getElementById(stream.id)) {
+                createCard({id: parts[1]})
+            }
+            document.getElementById(stream.id).srcObject = stream
+        }
+        con.onnegotiationneeded = e => {
+            console.warn('onnegotiationneeded', e)
+            sendRequest("NegotiationNeeded", null)
+        }
+
+        con.onconnectionstatechange = e => {
+            console.warn('onconnectionstatechange', {
+                connectionState: e.target.connectionState,
+                iceConnectionState: e.target.iceConnectionState
+            }, e.target)
+        }
+        con.ondatachannel = e => {
+            console.info('ondatachannel', e)
+        }
+        con.onicecandidateerror = e => {
+            console.info('onicecandidateerror', e)
+        }
+        con.oniceconnectionstatechange = e => {
+            console.warn('oniceconnectionstatechange', {
+                connectionState: e.target.connectionState,
+                iceConnectionState: e.target.iceConnectionState
+            }, e.target)
+        }
+        con.onicegatheringstatechange = e => {
+            console.warn('onicegatheringstatechange', {
+                connectionState: e.target.connectionState,
+                iceConnectionState: e.target.iceConnectionState
+            }, e.target)
+        }
+        con.onsignalingstatechange = e => {
+            console.warn('onsignalingstatechange', {
+                connectionState: e.target.connectionState,
+                iceConnectionState: e.target.iceConnectionState
+            }, e.target)
+        }
+    }
+
+    function replaceTrack(stream) {
+        if (con == null) {
+            return
+        }
+        let videoTrack = stream.getVideoTracks()[0]
+        console.warn("NEW", videoTrack)
+        const sender = con.getSenders().find(s => {
+
+            console.warn("OLD", s.track)
+            return s.track.kind === 'video'
+        })
+        if (sender) {
+            sender.replaceTrack(videoTrack)
+        }
+    }
+</script>
+</body>
+</html>
