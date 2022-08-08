@@ -15,7 +15,7 @@
             <input type="checkbox" id="chkScr" value="1" autocomplete="false"><label for="chkScr">Экран</label>
         </li>
     </ul>
-        <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="wss://svc.neapro.site/gateway">
+            <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="wss://svc.neapro.site/gateway">
 <!--    <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="ws://localhost:8778">-->
     <label for="token">Token:</label> <input type="text" id="token" value="student">
     <div>
@@ -218,7 +218,7 @@
                 if (data.params.candidate == null) {
                     return
                 }
-                if (!con.remoteDescription) {
+                if (!con || !con.remoteDescription) {
                     candidatePool.push(data.params.candidate)
                     return
                 }
