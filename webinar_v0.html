@@ -7,7 +7,7 @@
 <body>
 
 <div>
-    <ul>
+    <ul id="cntrl" style="display: none">
         <li>
             <input type="checkbox" id="chkCam" value="1" autocomplete="false"><label for="chkCam">Камера</label>
         </li>
@@ -15,12 +15,14 @@
             <input type="checkbox" id="chkScr" value="1" autocomplete="false"><label for="chkScr">Экран</label>
         </li>
     </ul>
+    <div id="connn">
 <!--            <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="wss://svc.neapro.site/gateway">-->
 <!--    <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="ws://localhost:8778">-->
     <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="wss://webrtc.iprior.ru">
     <label for="token">Token:</label> <input type="text" id="token" value="student">
     <div>
         <button type="button" id="btnCon">Connect</button>
+    </div>
     </div>
 </div>
 <hr>
@@ -135,6 +137,11 @@
     var ws
 
     function initWS() {
+        document.getElementById("btnCon").disabled = true
+        setTimeout(()=>{
+            document.getElementById("btnCon").disabled = false
+        }, 5000)
+
         let url = document.getElementById("wsURL").value + "?token=" +
             document.getElementById("token").value
         console.debug("signaling URL", url)
@@ -279,6 +286,19 @@
                 connectionState: e.target.connectionState,
                 iceConnectionState: e.target.iceConnectionState
             }, e.target)
+
+            //cntrl
+            switch (e.target.connectionState) {
+                case "connected":
+                    document.getElementById("cntrl").style = ""
+                    document.getElementById("connn").style = "display:none"
+                    break
+                case "disconnected":
+                    document.getElementById("cntrl").style = "display:none"
+                    document.getElementById("connn").style = ""
+                    break
+
+            }
         }
         con.ondatachannel = e => {
             console.info('ondatachannel', e)
