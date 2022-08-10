@@ -15,8 +15,9 @@
             <input type="checkbox" id="chkScr" value="1" autocomplete="false"><label for="chkScr">Экран</label>
         </li>
     </ul>
-            <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="wss://svc.neapro.site/gateway">
+<!--            <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="wss://svc.neapro.site/gateway">-->
 <!--    <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="ws://localhost:8778">-->
+    <label for="wsURL">Signaling:</label> <input type="text" id="wsURL" value="wss://webrtc.iprior.ru">
     <label for="token">Token:</label> <input type="text" id="token" value="student">
     <div>
         <button type="button" id="btnCon">Connect</button>
@@ -182,8 +183,8 @@
                 iam = data.params.member
                 break
             case "webinar.RtcConfig":
-                initRTC(data.params)
-                // initRTC({})
+                initRTC(data.params.configuration)
+                // initRTC({"iceServers":[{"urls":["stun:stun.services.mozilla.com","stun:stun.l.google.com:19302"]}]})
                 break
             case "webinar.Offer":
                 con.setRemoteDescription(data.params.offer).then(() => {
@@ -248,14 +249,13 @@
             console.error("текущий участник не определён (ehlo)")
             return
         }
+        console.log(conf)
         con = new RTCPeerConnection(conf)
         con.onicecandidate = candidate => {
             if (candidate == null) {
                 return
             }
-            sendRequest("Candidate", {
-                params: {candidate}
-            })
+            sendRequest("Candidate", {candidate: candidate.candidate})
         }
         con.ontrack = e => {
             let stream = e.streams[0]
