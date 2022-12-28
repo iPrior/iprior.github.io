@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebRTC :: Test :: Selenoid</title>
+    <script type="text/javascript" src="https://webrtchacks.github.io/adapter/adapter-latest.js"></script>
+</head>
+<body>
+<h1>Привет мир!</h1>
+<p>
+    <button id="startBtn" >Start</button>
+</p>
+<p>
+    <video id="localCam" autoplay muted></video>
+</p>
+
+
+<script type="text/javascript">
+
+    'use strict';
+    document.addEventListener("DOMContentLoaded", () => {
+
+        const startBtn = document.getElementById("startBtn")
+        const videoElement = document.getElementById("localCam");
+
+        startBtn.addEventListener("click", start)
+
+        console.debug("window.navigator", window.navigator.mediaDevices)
+        console.debug("navigator", navigator.mediaDevices)
+
+        window.navigator.mediaDevices.enumerateDevices()
+            .then((devices) => {
+                devices.forEach((device) => {
+                    console.debug(`DEVICE: ${device.kind}: ${device.label} id = ${device.deviceId}`);
+                });
+            })
+            .catch((err) => {
+                console.error(`${err.name}: ${err.message}`);
+            });
+
+        function start() {
+            window.navigator.mediaDevices.getUserMedia({video:true}).then(stream => {
+                videoElement.srcObject=stream
+            }).catch(e => {
+                console.error("start", e)
+            })
+        }
+    })
+
+
+
+</script>
+</body>
+</html>
